@@ -1,27 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:smc_crm/core/config/app_config.dart';
+import 'package:smc_crm/core/config/config_manager.dart';
 import 'package:smc_crm/core/notification_service.dart';
+import 'package:smc_crm/data/services/auth_service.dart';
+import 'package:smc_crm/ui/screens/auth/forgot_password_screen.dart';
+import 'package:smc_crm/ui/screens/auth/login_screen.dart';
 // MAKE SURE THIS PATH IS CORRECT
 import 'ui/screens/main_navigation.dart';
 
 void main() async {
-  // Required for Firebase
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Start Firebase
+  // Set this to Environment.dev for local testing with your Next.js server
+  ConfigManager.initialize(Environment.prod);
+
   await Firebase.initializeApp();
 
-  // 2. Setup Notifications
+  // Initialize Auth and check for existing token
+  final authService = AuthService();
   final notificationService = NotificationService();
+
+  // Initialize notifications
   await notificationService.initNotification();
 
-  // 3. Print Token for your Postman Test
-  String? token = await notificationService.getDeviceToken();
-  print("--------- SMC FCM TOKEN ---------");
-  print(token);
-  print("---------------------------------");
+  // Check if a user is already logged in
+  String? token = await authService.getToken();
 
-  runApp(const SMCCRMApp());
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFFFACC14), // SMC Yellow
+      ),
+      // If token exists, go to home. If not, go to login.
+      initialRoute: token == null ? '/login' : '/home',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/home': (context) => const MainNavigation(),
+      },
+    ),
+  );
 }
 
 class SMCCRMApp extends StatelessWidget {
