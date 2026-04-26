@@ -1,4 +1,4 @@
-package com.yourdomain.smc_crm
+package com.sellmycartoday.crm
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "862457417603",
+    "project_id": "smc-crm-43ec1",
+    "storage_bucket": "smc-crm-43ec1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862457417603:android:33372cd9fb184b6bb8b0b6",
+        "android_client_info": {
+          "package_name": "com.sellmycartoday.crm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoDxI_4m-WJ-zl1z4d5lgix-cIyiYPA8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
