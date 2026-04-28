@@ -3,25 +3,46 @@ class UserModel {
   final String name;
   final String email;
   final String role;
-  final String? tenantName;
+  final TenantModel tenant;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
     required this.role,
-    this.tenantName,
+    required this.tenant,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    // Mapping based on your Next.js response structure
-    final userData = json['user'];
     return UserModel(
-      id: userData['id'],
-      name: userData['name'],
-      email: userData['email'],
-      role: userData['role'],
-      tenantName: userData['tenant']?['name'],
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      role: json['role'],
+      tenant: TenantModel.fromJson(json['tenant']),
+    );
+  }
+}
+
+class TenantModel {
+  final String id;
+  final String name;
+  final String slug;
+  final String status;
+
+  TenantModel({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.status,
+  });
+
+  factory TenantModel.fromJson(Map<String, dynamic> json) {
+    return TenantModel(
+      id: json['id'],
+      name: json['name'],
+      slug: json['slug'],
+      status: json['status'],
     );
   }
 }

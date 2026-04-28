@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../../data/models/car_model.dart';
-import '../../data/models/mock_data.dart';
-import '../widgets/car_card.dart';
+import '../../data/models/offer_model.dart';
+import '../../data/services/crm_service.dart';
+import '../widgets/offer_card.dart';
+import 'offer_detail_screen.dart';
 
 class AcceptedOffersScreen extends StatefulWidget {
   const AcceptedOffersScreen({super.key});
@@ -11,92 +14,312 @@ class AcceptedOffersScreen extends StatefulWidget {
 }
 
 class _AcceptedOffersScreenState extends State<AcceptedOffersScreen> {
-  String _searchQuery = "";
-  final Color brandYellow = const Color(0xFFFACC14);
+  final CRMService _crmService = CRMService();
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
-  // Efficiency Filter: Specifically for Offer Accepted status
-  List<CarModel> get _acceptedLeads {
-    return dashboardLeads.where((car) {
-      // 1. First check the status
-      final isAccepted = car.status == CarStatus.offerAccepted;
+  List<OfferModel> _offers = [];
+  bool _isInitialLoading = true;
+  bool _isLoadingMore = false;
+  bool _isRefreshing = false;
+  bool _hasMore = true;
+  int _currentPage = 1;
+  final int _pageSize = 10;
+  String _searchQuery = '';
+  String? _errorMessage;
+  Timer? _searchDebounce;
 
-      // 2. Process search query
-      final query = _searchQuery.toLowerCase();
-      if (query.isEmpty) return isAccepted;
+  @override
+  void initState() {
+    super.initState();
+    _fetchOffers(isRefresh: true);
+    _scrollController.addListener(_onScroll);
+  }
 
-      // 3. Multi-field search with Null Safety
-      // We use '?? false' so if a field is null, it doesn't crash the condition
-      final matchesName =
-          car.customerName?.toLowerCase().contains(query) ?? false;
-      final matchesReg = car.reg.toLowerCase().contains(query);
-      final matchesPhone = car.phoneNumber?.contains(query) ?? false;
+  Future<void> _fetchOffers({bool isRefresh = false}) async {
+    if (_isLoadingMore || (_isInitialLoading && !isRefresh)) {
+      return;
+    }
 
-      return isAccepted && (matchesName || matchesReg || matchesPhone);
-    }).toList();
+    if (isRefresh) {
+      setState(() {
+        _currentPage = 1;
+        _hasMore = true;
+        _errorMessage = null;
+        if (_offers.isEmpty) {
+          _isInitialLoading = true;
+        } else {
+          _isRefreshing = true;
+        }
+      });
+    } else if (!_hasMore) {
+      return;
+    } else {
+      setState(() {
+        _isLoadingMore = true;
+        _errorMessage = null;
+      });
+    }
+
+    final pageToLoad = isRefresh ? 1 : _currentPage;
+
+    try {
+      final result = await _crmService.fetchOffers(
+        page: pageToLoad,
+        limit: _pageSize,
+        search: _searchQuery,
+      );
+
+      final fetchedItems = result['items'] as List<OfferModel>;
+      final hasNext = result['hasNextPage'] == true;
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        if (isRefresh) {
+          _offers = fetchedItems;
+        } else {
+          _offers.addAll(fetchedItems);
+        }
+
+        _isInitialLoading = false;
+        _isRefreshing = false;
+        _isLoadingMore = false;
+        _hasMore = hasNext;
+        _currentPage = hasNext ? pageToLoad + 1 : pageToLoad;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isInitialLoading = false;
+        _isRefreshing = false;
+        _isLoadingMore = false;
+        if (_offers.isEmpty) {
+          _errorMessage = 'Unable to load offers right now.';
+        }
+      });
+      debugPrint("Offers pagination error: $e");
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isLoadingMore || !_hasMore) {
+      return;
+    }
+
+    final triggerFetch =
+        _scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 240;
+
+    if (triggerFetch) {
+      _fetchOffers();
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) {
+        return;
+      }
+      final trimmed = value.trim();
+      if (trimmed == _searchQuery) {
+        return;
+      }
+      _searchQuery = trimmed;
+      _fetchOffers(isRefresh: true);
+    });
+  }
+
+  void _openOfferDetail(OfferModel offer) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => OfferDetailScreen(offer: offer)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    const brandYellow = Color(0xFFFACC14);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          "Accepted Offers",
+          "Offers",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: brandYellow,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
-              onChanged: (val) => setState(() => _searchQuery = val),
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {});
+                _onSearchChanged(value);
+              },
+              onSubmitted: (value) {
+                _searchDebounce?.cancel();
+                _searchQuery = value.trim();
+                _fetchOffers(isRefresh: true);
+              },
               decoration: InputDecoration(
-                hintText: "Search Customer or Reg...",
-                prefixIcon: const Icon(
-                  Icons.handshake_outlined,
-                  color: Colors.black,
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: brandYellow, width: 2),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+                hintText: "Search by customer, reg, make, model",
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchQuery = '';
+                          _fetchOffers(isRefresh: true);
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
               ),
             ),
           ),
-        ),
-      ),
-      body: _acceptedLeads.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _acceptedLeads.length,
-              itemBuilder: (context, index) =>
-                  LeadCard(car: _acceptedLeads[index]),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => _fetchOffers(isRefresh: true),
+              color: Colors.black,
+              backgroundColor: brandYellow,
+              child: _isInitialLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: brandYellow),
+                    )
+                  : _errorMessage != null
+                  ? _buildErrorState()
+                  : _offers.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount:
+                          _offers.length + 1 + (_isLoadingMore || _hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index < _offers.length) {
+                          return OfferCard(
+                            offer: _offers[index],
+                            onTap: () => _openOfferDetail(_offers[index]),
+                          );
+                        }
+
+                        if (index == _offers.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "${_offers.length} offers loaded",
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                                if (_isRefreshing)
+                                  const SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: brandYellow,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Visibility(
+                          visible: _isLoadingMore,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: brandYellow,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+        const Icon(Icons.wifi_off_rounded, size: 46, color: Colors.grey),
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            _errorMessage ?? 'Something went wrong',
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: ElevatedButton(
+            onPressed: () => _fetchOffers(isRefresh: true),
+            child: const Text("Try Again"),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[200]),
-          const SizedBox(height: 16),
-          const Text(
-            "No accepted offers yet",
-            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+        Center(
+          child: Column(
+            children: [
+              Icon(Icons.handshake_outlined, size: 64, color: Colors.grey[200]),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isEmpty
+                    ? "No offers found."
+                    : "No offers match \"$_searchQuery\".",
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 
 class ImageService {
   final ImagePicker _picker = ImagePicker();
@@ -9,7 +10,7 @@ class ImageService {
       final List<XFile> images = await _picker.pickMultiImage();
       return images;
     } catch (e) {
-      print("Error picking images: $e");
+      debugPrint("Error picking images: $e");
       return [];
     }
   }
@@ -22,7 +23,7 @@ class ImageService {
         imageQuality: 85, // Balanced for API upload
       );
     } catch (e) {
-      print("Error taking photo: $e");
+      debugPrint("Error taking photo: $e");
       return null;
     }
   }

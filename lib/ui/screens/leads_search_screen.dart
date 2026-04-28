@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../data/models/car_model.dart';
-import '../../data/models/mock_data.dart';
+import '../../data/models/lead_model.dart'; // Import the real model
+import '../../data/services/crm_service.dart'; // Import the service
 import '../widgets/car_card.dart';
 
 class LeadsSearchScreen extends StatefulWidget {
@@ -11,31 +11,40 @@ class LeadsSearchScreen extends StatefulWidget {
 }
 
 class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
+  final CRMService _crmService = CRMService();
   String _searchQuery = "";
   DateTimeRange? _selectedDateRange;
-  CarStatus? _statusFilter;
+  String? _statusFilter; // Using String to match your API status values
 
-  // High-efficiency filter logic
-  List<CarModel> get _filteredLeads {
-    return dashboardLeads.where((car) {
-      // 1. Multi-field Text Search (Smart Search)
-      final query = _searchQuery.toLowerCase();
-      final matchesText =
-          car.reg.toLowerCase().contains(query) ||
-          car.make.toLowerCase().contains(query) ||
-          car.model.toLowerCase().contains(query) ||
-          (car.customerName?.toLowerCase().contains(query) ?? false) ||
-          (car.phoneNumber?.contains(query) ?? false);
+  List<LeadModel> _searchResults = [];
+  bool _isLoading = false;
 
-      // 2. Status Filter
-      final matchesStatus =
-          _statusFilter == null || car.status == _statusFilter;
+  @override
+  void initState() {
+    super.initState();
+    _performSearch(); // Initial load
+  }
 
-      // 3. Date Range (Mock logic: assuming a 'createdAt' field exists)
-      // For now, we skip date logic until your API provides timestamps.
+  /// Fetches filtered data from the real API
+  Future<void> _performSearch() async {
+    setState(() => _isLoading = true);
 
-      return matchesText && matchesStatus;
-    }).toList();
+    try {
+      // Pass the query and status to your API service
+      final result = await _crmService.fetchData(
+        endpoint: '/leads',
+        search: _searchQuery,
+        // If your API supports status filtering, pass it here
+      );
+
+      setState(() {
+        _searchResults = result['items'];
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint("Search error: $e");
+    }
   }
 
   @override
@@ -55,11 +64,14 @@ class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
               children: [
                 Expanded(
                   child: TextField(
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onSubmitted: (val) {
+                      setState(() => _searchQuery = val);
+                      _performSearch();
+                    },
                     decoration: InputDecoration(
                       hintText: "Name, Reg, Phone...",
                       prefixIcon: const Icon(Icons.search, size: 20),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      contentPadding: EdgeInsets.zero,
                       filled: true,
                       fillColor: Colors.grey[100],
                       border: OutlineInputBorder(
@@ -76,13 +88,20 @@ class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
           ),
         ),
       ),
-      body: _filteredLeads.isEmpty
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFACC14)),
+            )
+          : _searchResults.isEmpty
           ? const Center(child: Text("No matching leads found"))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _filteredLeads.length,
-              itemBuilder: (context, index) =>
-                  LeadCard(car: _filteredLeads[index]),
+              itemCount: _searchResults.length,
+              itemBuilder: (context, index) {
+                final item = _searchResults[index];
+                // FIXED: Changed 'car' to 'lead' to match your updated LeadCard
+                return LeadCard(lead: item);
+              },
             ),
     );
   }
@@ -139,8 +158,6 @@ class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-
-              // Status Chips
               const Text(
                 "Status",
                 style: TextStyle(fontSize: 14, color: Colors.grey),
@@ -148,27 +165,23 @@ class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
-                children:
-                    [
-                      CarStatus.lead,
-                      CarStatus.negotiation,
-                      CarStatus.offerAccepted,
-                    ].map((s) {
-                      return ChoiceChip(
-                        label: Text(s.name),
-                        selected: _statusFilter == s,
-                        onSelected: (selected) {
-                          setModalState(
-                            () => _statusFilter = selected ? s : null,
-                          );
-                          setState(() {}); // Update main UI
-                        },
+                children: ["NEW_LEAD", "NEGOTIATION", "OFFER_ACCEPTED"].map((
+                  status,
+                ) {
+                  return ChoiceChip(
+                    label: Text(status.replaceAll("_", " ")),
+                    selected: _statusFilter == status,
+                    onSelected: (selected) {
+                      setModalState(
+                        () => _statusFilter = selected ? status : null,
                       );
-                    }).toList(),
+                      setState(() {});
+                      _performSearch(); // Re-fetch on filter change
+                    },
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 20),
-
-              // Date Range Picker
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.date_range),
@@ -186,12 +199,11 @@ class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
                   if (range != null) {
                     setModalState(() => _selectedDateRange = range);
                     setState(() {});
+                    _performSearch();
                   }
                 },
               ),
               const SizedBox(height: 20),
-
-              // Clear All Button
               SizedBox(
                 width: double.infinity,
                 child: TextButton(
@@ -200,6 +212,7 @@ class _LeadsSearchScreenState extends State<LeadsSearchScreen> {
                       _statusFilter = null;
                       _selectedDateRange = null;
                     });
+                    _performSearch();
                     Navigator.pop(context);
                   },
                   child: const Text(

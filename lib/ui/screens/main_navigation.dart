@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:smc_crm/ui/screens/accepted_offers_screen.dart';
 import 'package:smc_crm/ui/screens/dashboard_screen.dart';
-import 'package:smc_crm/ui/screens/leads_search_screen.dart';
+import 'package:smc_crm/ui/screens/leads_list_screen.dart';
 import 'package:smc_crm/ui/screens/stock_search_screen.dart';
+import 'package:smc_crm/ui/screens/settings/settings_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -16,12 +17,12 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const LeadsSearchScreen(), // Screen with heavy filters
-    const StockSearchScreen(), // Screen with heavy filters
+    const LeadsListScreen(),
+    const StockSearchScreen(),
     const AcceptedOffersScreen(),
+    const SettingsScreen(),
   ];
 
-  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,7 +30,13 @@ class _MainNavigationState extends State<MainNavigation> {
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
+        onTap: (index) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          if (_selectedIndex == index) {
+            return;
+          }
+          setState(() => _selectedIndex = index);
+        },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
@@ -57,6 +64,11 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.handshake_outlined),
             activeIcon: Icon(Icons.handshake),
             label: 'Offers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

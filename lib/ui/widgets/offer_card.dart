@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
-import '../../data/models/lead_model.dart';
+import '../../data/models/offer_model.dart';
 
-class LeadCard extends StatelessWidget {
-  final LeadModel lead;
+class OfferCard extends StatelessWidget {
+  final OfferModel offer;
   final VoidCallback? onTap;
 
-  const LeadCard({super.key, required this.lead, this.onTap});
+  const OfferCard({super.key, required this.offer, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    // Styling Constants
-    const Color brandYellow = Color(0xFFFACC14);
-    const Color brandBlack = Color(0xFF000000);
-    final statusLabel = lead.pipelineStatus.replaceAll("_", " ");
+    const brandYellow = Color(0xFFFACC14);
+    const brandBlack = Color(0xFF000000);
+    final lead = offer.lead;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -48,14 +47,13 @@ class LeadCard extends StatelessWidget {
                       height: 80,
                       color: Colors.grey[200],
                       child: const Icon(
-                        Icons.directions_car,
+                        Icons.handshake_outlined,
                         color: Colors.grey,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,18 +96,19 @@ class LeadCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "${lead.vehicle.mileage} miles",
+                        offer.expiresAt == null
+                            ? "No expiry date"
+                            : "Expires ${_formatDate(offer.expiresAt!.toLocal())}",
                         style: TextStyle(color: Colors.grey[500], fontSize: 11),
                       ),
                     ],
                   ),
                 ),
-
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      "£${lead.valuationAmount ?? '0'}",
+                      "${offer.currency} ${offer.amount}",
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -123,17 +122,23 @@ class LeadCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: brandYellow.withValues(alpha: 0.2),
+                        color: _statusColor(offer.status).withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        statusLabel,
-                        style: const TextStyle(
+                        offer.status,
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: brandBlack,
+                          color: _statusColor(offer.status),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: brandYellow,
                     ),
                   ],
                 ),
@@ -163,5 +168,36 @@ class LeadCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACCEPTED':
+        return Colors.green;
+      case 'REJECTED':
+        return Colors.red;
+      case 'VIEWED':
+        return Colors.blue;
+      default:
+        return const Color(0xFF8C6B00);
+    }
+  }
+
+  String _formatDate(DateTime dateTime) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return "${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}";
   }
 }

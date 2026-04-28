@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../data/models/lead_model.dart';
+import '../../data/models/offer_model.dart';
 import '../widgets/uk_reg_plate.dart';
 
-class LeadDetailScreen extends StatelessWidget {
-  final LeadModel lead;
+class OfferDetailScreen extends StatelessWidget {
+  final OfferModel offer;
 
-  const LeadDetailScreen({super.key, required this.lead});
+  const OfferDetailScreen({super.key, required this.offer});
 
   @override
   Widget build(BuildContext context) {
     const brandYellow = Color(0xFFFACC14);
+    final lead = offer.lead;
     final vehicleTitle = [
       if (lead.vehicle.registrationYear != null)
         lead.vehicle.registrationYear.toString(),
@@ -37,7 +38,7 @@ class LeadDetailScreen extends StatelessWidget {
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.grey[200],
                       child: const Icon(
-                        Icons.directions_car_filled,
+                        Icons.handshake_outlined,
                         size: 64,
                         color: Colors.grey,
                       ),
@@ -62,7 +63,6 @@ class LeadDetailScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 8),
                         UkRegPlate(reg: lead.vehicle.registrationNumber),
                         const SizedBox(height: 12),
                         Text(
@@ -75,7 +75,7 @@ class LeadDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          "${lead.vehicle.mileage} miles",
+                          "${lead.customer.fullName} • ${offer.currency} ${offer.amount}",
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -100,23 +100,77 @@ class LeadDetailScreen extends StatelessWidget {
                     children: [
                       _InfoChip(
                         label: 'Status',
-                        value: lead.pipelineStatus.replaceAll('_', ' '),
-                        backgroundColor: brandYellow.withValues(alpha: 0.2),
+                        value: offer.status,
+                        backgroundColor: _statusColor(
+                          offer.status,
+                        ).withValues(alpha: 0.16),
+                        valueColor: _statusColor(offer.status),
                       ),
                       _InfoChip(
-                        label: 'Valuation',
-                        value:
-                            "${lead.valuationCurrency ?? 'GBP'} ${lead.valuationAmount ?? '0'}",
+                        label: 'Offer Amount',
+                        value: "${offer.currency} ${offer.amount}",
                       ),
                       _InfoChip(
-                        label: 'Source',
-                        value: lead.sourceName.isEmpty
-                            ? lead.sourceType
-                            : lead.sourceName,
+                        label: 'Expires',
+                        value: offer.expiresAt == null
+                            ? 'Not set'
+                            : _formatDateTime(offer.expiresAt!.toLocal()),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
+                  _DetailSection(
+                    title: 'Offer Summary',
+                    child: Column(
+                      children: [
+                        _detailRow('Offer ID', offer.id),
+                        _detailRow('Lead ID', offer.leadId),
+                        _detailRow('Status', offer.status),
+                        _detailRow('Amount', "${offer.currency} ${offer.amount}"),
+                        _detailRow(
+                          'Created',
+                          _formatDateTime(offer.createdAt.toLocal()),
+                        ),
+                        _detailRow(
+                          'Accepted',
+                          offer.acceptedAt == null
+                              ? 'Not available'
+                              : _formatDateTime(offer.acceptedAt!.toLocal()),
+                        ),
+                        _detailRow(
+                          'Viewed',
+                          offer.viewedAt == null
+                              ? 'Not available'
+                              : _formatDateTime(offer.viewedAt!.toLocal()),
+                        ),
+                        _detailRow(
+                          'Rejected',
+                          offer.rejectedAt == null
+                              ? 'Not available'
+                              : _formatDateTime(offer.rejectedAt!.toLocal()),
+                        ),
+                        _detailRow(
+                          'Follow Up Attempts',
+                          offer.followUpAttemptCount.toString(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if ((offer.message ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _DetailSection(
+                      title: 'Offer Message',
+                      child: Text(
+                        offer.message!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
                   _DetailSection(
                     title: 'Customer',
                     child: Column(
@@ -134,14 +188,6 @@ class LeadDetailScreen extends StatelessWidget {
                         _detailRow(
                           'Postcode',
                           lead.customer.postcode ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Preferred Contact',
-                          lead.preferredContactMethod ?? 'Not set',
-                        ),
-                        _detailRow(
-                          'Best Time',
-                          lead.bestTimeToContact ?? 'Not set',
                         ),
                       ],
                     ),
@@ -166,10 +212,6 @@ class LeadDetailScreen extends StatelessWidget {
                           lead.vehicle.colour ?? 'Not available',
                         ),
                         _detailRow(
-                          'Body Type',
-                          lead.vehicle.bodyType ?? 'Not available',
-                        ),
-                        _detailRow(
                           'Fuel',
                           lead.vehicle.fuelType ?? 'Not available',
                         ),
@@ -177,65 +219,16 @@ class LeadDetailScreen extends StatelessWidget {
                           'Transmission',
                           lead.vehicle.transmission ?? 'Not available',
                         ),
-                        _detailRow(
-                          'Previous Owners',
-                          lead.vehicle.previousOwners?.toString() ??
-                              'Not available',
-                        ),
-                        _detailRow(
-                          'Engine Capacity',
-                          lead.vehicle.engineCapacity ?? 'Not available',
-                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  _DetailSection(
-                    title: 'Lead Info',
-                    child: Column(
-                      children: [
-                        _detailRow(
-                          'Created',
-                          _formatDateTime(lead.createdAt.toLocal()),
-                        ),
-                        _detailRow(
-                          'Enquiry Time',
-                          lead.enquiryTime == null
-                              ? 'Not available'
-                              : _formatDateTime(lead.enquiryTime!.toLocal()),
-                        ),
-                        _detailRow(
-                          'Offer Requested',
-                          lead.isOfferRequested ? 'Yes' : 'No',
-                        ),
-                        _detailRow(
-                          'Published To Inventory',
-                          lead.isPublishedToInventory ? 'Yes' : 'No',
-                        ),
-                      ],
-                    ),
-                  ),
-                  if ((lead.extraNote ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    _DetailSection(
-                      title: 'Notes',
-                      child: Text(
-                        lead.extraNote!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _ActionBar(lead: lead),
+      bottomNavigationBar: _OfferActionBar(offer: offer),
     );
   }
 
@@ -271,6 +264,19 @@ class LeadDetailScreen extends StatelessWidget {
     );
   }
 
+  Color _statusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACCEPTED':
+        return Colors.green;
+      case 'REJECTED':
+        return Colors.red;
+      case 'VIEWED':
+        return Colors.blue;
+      default:
+        return const Color(0xFF8C6B00);
+    }
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final month = _monthName(dateTime.month);
     final hour = dateTime.hour == 0
@@ -302,13 +308,14 @@ class LeadDetailScreen extends StatelessWidget {
   }
 }
 
-class _ActionBar extends StatelessWidget {
-  final LeadModel lead;
+class _OfferActionBar extends StatelessWidget {
+  final OfferModel offer;
 
-  const _ActionBar({required this.lead});
+  const _OfferActionBar({required this.offer});
 
   @override
   Widget build(BuildContext context) {
+    final lead = offer.lead;
     final whatsappPhone = lead.customer.whatsappNumber ?? lead.customer.phoneNumber;
     final email = lead.customer.email;
 
@@ -364,7 +371,7 @@ class _ActionBar extends StatelessWidget {
   Future<void> _launchWhatsApp(BuildContext context, String phone) async {
     final cleanPhone = _sanitizePhone(phone);
     final text = Uri.encodeComponent(
-      "Regarding your ${lead.vehicle.make} ${lead.vehicle.model}",
+      "Regarding your offer for ${offer.lead.vehicle.make} ${offer.lead.vehicle.model}",
     );
 
     final directUri = Uri.parse("whatsapp://send?phone=$cleanPhone&text=$text");
@@ -444,11 +451,13 @@ class _InfoChip extends StatelessWidget {
   final String label;
   final String value;
   final Color? backgroundColor;
+  final Color? valueColor;
 
   const _InfoChip({
     required this.label,
     required this.value,
     this.backgroundColor,
+    this.valueColor,
   });
 
   @override
@@ -469,7 +478,11 @@ class _InfoChip extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: valueColor ?? Colors.black87,
+            ),
           ),
         ],
       ),

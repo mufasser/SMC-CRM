@@ -6,7 +6,6 @@ import 'package:smc_crm/core/notification_service.dart';
 import 'package:smc_crm/data/services/auth_service.dart';
 import 'package:smc_crm/ui/screens/auth/forgot_password_screen.dart';
 import 'package:smc_crm/ui/screens/auth/login_screen.dart';
-// MAKE SURE THIS PATH IS CORRECT
 import 'ui/screens/main_navigation.dart';
 
 void main() async {
@@ -27,26 +26,13 @@ void main() async {
   // Check if a user is already logged in
   String? token = await authService.getToken();
 
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: const Color(0xFFFACC14), // SMC Yellow
-      ),
-      // If token exists, go to home. If not, go to login.
-      initialRoute: token == null ? '/login' : '/home',
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/forgot-password': (context) => const ForgotPasswordScreen(),
-        '/home': (context) => const MainNavigation(),
-      },
-    ),
-  );
+  runApp(SMCCRMApp(initialRoute: token == null ? '/login' : '/home'));
 }
 
 class SMCCRMApp extends StatelessWidget {
-  const SMCCRMApp({super.key});
+  final String initialRoute;
+
+  const SMCCRMApp({super.key, this.initialRoute = '/home'});
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +43,7 @@ class SMCCRMApp extends StatelessWidget {
     return MaterialApp(
       title: 'SMC CRM',
       debugShowCheckedModeBanner: false,
+      initialRoute: initialRoute,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
@@ -143,7 +130,11 @@ class SMCCRMApp extends StatelessWidget {
               .transparent, // Removes the thin grey line under the tab bar
         ),
       ),
-      home: const MainNavigation(),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/home': (context) => const MainNavigation(),
+      },
     );
   }
 }

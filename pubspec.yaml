@@ -45,6 +45,8 @@ dependencies:
   url_launcher: ^6.3.2
   image_picker: ^1.2.1
   flutter_secure_storage: ^9.0.0
+  device_info_plus: ^12.4.0
+  package_info_plus: ^9.0.1
 
 
 dev_dependencies:
