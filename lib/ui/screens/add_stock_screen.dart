@@ -4,9 +4,10 @@ import '../../data/services/crm_service.dart';
 import '../widgets/uk_reg_plate.dart';
 
 class AddStockScreen extends StatefulWidget {
+  final String? stockId;
   final StockModel? initialStock;
 
-  const AddStockScreen({super.key, this.initialStock});
+  const AddStockScreen({super.key, this.stockId, this.initialStock});
 
   @override
   State<AddStockScreen> createState() => _AddStockScreenState();
@@ -16,7 +17,10 @@ class _AddStockScreenState extends State<AddStockScreen> {
   final _formKey = GlobalKey<FormState>();
   final CRMService _crmService = CRMService();
   List<String> _prefillImageUrls = [];
+  StockDetailModel? _editDetail;
 
+  late final TextEditingController _stockNumberController;
+  late final TextEditingController _referenceNumberController;
   late final TextEditingController _regController;
   late final TextEditingController _mileageController;
   late final TextEditingController _makeController;
@@ -24,22 +28,32 @@ class _AddStockScreenState extends State<AddStockScreen> {
   late final TextEditingController _variantController;
   late final TextEditingController _yearController;
   late final TextEditingController _bodyTypeController;
+  late final TextEditingController _doorsController;
+  late final TextEditingController _previousOwnersController;
   late final TextEditingController _colorController;
   late final TextEditingController _fuelController;
   late final TextEditingController _transmissionController;
   late final TextEditingController _engineSizeController;
+  late final TextEditingController _vinController;
+  late final TextEditingController _conditionNotesController;
+  late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
 
   bool _isFetching = false;
+  bool _isDetailLoading = false;
   bool _isSubmitting = false;
   bool _isPublic = true;
 
-  bool get _isEditMode => widget.initialStock != null;
+  bool get _isEditMode => widget.stockId != null || widget.initialStock != null;
 
   @override
   void initState() {
     super.initState();
     final stock = widget.initialStock;
+    _stockNumberController = TextEditingController(text: stock?.stockNumber ?? '');
+    _referenceNumberController = TextEditingController(
+      text: stock?.referenceNumber ?? '',
+    );
     _regController = TextEditingController(
       text: stock?.registrationNumber ?? '',
     );
@@ -53,17 +67,33 @@ class _AddStockScreenState extends State<AddStockScreen> {
       text: stock?.registrationYear?.toString() ?? '',
     );
     _bodyTypeController = TextEditingController(text: stock?.bodyType ?? '');
+    _doorsController = TextEditingController(text: '');
+    _previousOwnersController = TextEditingController(
+      text: stock?.previousOwners?.toString() ?? '',
+    );
     _colorController = TextEditingController(text: stock?.colour ?? '');
     _fuelController = TextEditingController(text: stock?.fuelType ?? '');
     _transmissionController = TextEditingController(
       text: stock?.transmission ?? '',
     );
     _engineSizeController = TextEditingController(text: '');
+    _vinController = TextEditingController(text: '');
+    _conditionNotesController = TextEditingController(
+      text: stock?.conditionNotes ?? '',
+    );
+    _descriptionController = TextEditingController(text: stock?.description ?? '');
     _priceController = TextEditingController(text: stock?.askPrice ?? '');
+    _isPublic = stock?.isVisibleInApi ?? true;
+
+    if (widget.stockId != null) {
+      _loadEditDetail();
+    }
   }
 
   @override
   void dispose() {
+    _stockNumberController.dispose();
+    _referenceNumberController.dispose();
     _regController.dispose();
     _mileageController.dispose();
     _makeController.dispose();
@@ -71,12 +101,69 @@ class _AddStockScreenState extends State<AddStockScreen> {
     _variantController.dispose();
     _yearController.dispose();
     _bodyTypeController.dispose();
+    _doorsController.dispose();
+    _previousOwnersController.dispose();
     _colorController.dispose();
     _fuelController.dispose();
     _transmissionController.dispose();
     _engineSizeController.dispose();
+    _vinController.dispose();
+    _conditionNotesController.dispose();
+    _descriptionController.dispose();
     _priceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadEditDetail() async {
+    if (widget.stockId == null) {
+      return;
+    }
+
+    setState(() => _isDetailLoading = true);
+    final detail = await _crmService.fetchStockDetail(widget.stockId!);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (detail != null) {
+      _editDetail = detail;
+      _stockNumberController.text = detail.stock.stockNumber;
+      _referenceNumberController.text =
+          detail.vehicle.referenceNumber ?? _referenceNumberController.text;
+      _regController.text =
+          detail.vehicle.registrationNumber ?? _regController.text;
+      _makeController.text = detail.vehicle.make ?? _makeController.text;
+      _modelController.text = detail.vehicle.model ?? _modelController.text;
+      _variantController.text = detail.vehicle.variant ?? _variantController.text;
+      _yearController.text =
+          detail.vehicle.registrationYear?.toString() ?? _yearController.text;
+      _bodyTypeController.text =
+          detail.vehicle.bodyType ?? _bodyTypeController.text;
+      _doorsController.text =
+          detail.vehicle.doors?.toString() ?? _doorsController.text;
+      _previousOwnersController.text =
+          detail.vehicle.previousOwners?.toString() ??
+          _previousOwnersController.text;
+      _colorController.text = detail.vehicle.colour ?? _colorController.text;
+      _fuelController.text = detail.vehicle.fuelType ?? _fuelController.text;
+      _engineSizeController.text =
+          detail.vehicle.engineSize ?? _engineSizeController.text;
+      _transmissionController.text =
+          detail.vehicle.transmission ?? _transmissionController.text;
+      _mileageController.text =
+          detail.vehicle.mileage?.toString() ?? _mileageController.text;
+      _vinController.text = detail.vehicle.vin ?? _vinController.text;
+      _conditionNotesController.text =
+          detail.vehicle.conditionNotes ?? _conditionNotesController.text;
+      _descriptionController.text =
+          detail.vehicle.description ?? _descriptionController.text;
+      _priceController.text =
+          detail.stock.askPrice?.toStringAsFixed(0) ?? _priceController.text;
+      _isPublic = detail.stock.isVisibleInApi;
+    }
+
+    setState(() => _isDetailLoading = false);
   }
 
   Future<void> _fetchVehicleData() async {
@@ -160,48 +247,15 @@ class _AddStockScreenState extends State<AddStockScreen> {
       return;
     }
 
-    if (_isEditMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Edit API not shared yet. Form is ready once endpoint is available.',
-          ),
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
-
-    final payload = <String, dynamic>{
-      "stockStatus": "IN_STOCK",
-      "isVisibleInApi": _isPublic,
-      "registrationNumber": _regController.text.trim(),
-      "make": _makeController.text.trim(),
-      "model": _modelController.text.trim(),
-      "variant": _variantController.text.trim().isEmpty
-          ? null
-          : _variantController.text.trim(),
-      "registrationYear": int.tryParse(_yearController.text.trim()),
-      "bodyType": _bodyTypeController.text.trim().isEmpty
-          ? null
-          : _bodyTypeController.text.trim(),
-      "colour": _colorController.text.trim(),
-      "fuelType": _fuelController.text.trim(),
-      "engineSize": _engineSizeController.text.trim().isEmpty
-          ? null
-          : _engineSizeController.text.trim(),
-      "transmission": _transmissionController.text.trim(),
-      "mileage": int.tryParse(_mileageController.text.trim()),
-      "askPrice": num.tryParse(_priceController.text.trim()),
-      "currencyCode": "£",
-    };
-
-    final result = await _crmService.createStock(
-      payload: payload,
-      filePaths: const [],
-      isPublic: _isPublic,
-    );
+    final payload = _buildPayload();
+    final result = _isEditMode && widget.stockId != null
+        ? await _crmService.updateStock(stockId: widget.stockId!, payload: payload)
+        : await _crmService.createStock(
+            payload: payload,
+            filePaths: const [],
+            isPublic: _isPublic,
+          );
 
     if (!mounted) {
       return;
@@ -211,9 +265,11 @@ class _AddStockScreenState extends State<AddStockScreen> {
 
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Stock created successfully. Use Manage Gallery from the stock list next.',
+            _isEditMode
+                ? 'Stock updated successfully.'
+                : 'Stock created successfully. Use Manage Gallery from the stock list next.',
           ),
         ),
       );
@@ -228,6 +284,62 @@ class _AddStockScreenState extends State<AddStockScreen> {
         ),
       ),
     );
+  }
+
+  Map<String, dynamic> _buildPayload() {
+    final detail = _editDetail;
+    final stock = widget.initialStock;
+
+    return <String, dynamic>{
+      "stockStatus":
+          detail?.stock.stockStatus ?? stock?.stockStatus ?? "IN_STOCK",
+      "isVisibleInApi": _isPublic,
+      "stockNumber": _stockNumberController.text.trim().isEmpty
+          ? detail?.stock.stockNumber ?? stock?.stockNumber
+          : _stockNumberController.text.trim(),
+      "referenceNumber": _referenceNumberController.text.trim().isEmpty
+          ? detail?.vehicle.referenceNumber ?? stock?.referenceNumber
+          : _referenceNumberController.text.trim(),
+      "registrationNumber": _regController.text.trim(),
+      "make": _makeController.text.trim(),
+      "model": _modelController.text.trim(),
+      "variant": _variantController.text.trim().isEmpty
+          ? detail?.vehicle.variant ?? stock?.variant
+          : _variantController.text.trim(),
+      "registrationYear": int.tryParse(_yearController.text.trim()),
+      "bodyType": _bodyTypeController.text.trim().isEmpty
+          ? detail?.vehicle.bodyType ?? stock?.bodyType
+          : _bodyTypeController.text.trim(),
+      "colour": _colorController.text.trim(),
+      "doors": int.tryParse(_doorsController.text.trim()) ?? detail?.vehicle.doors,
+      "previousOwners":
+          int.tryParse(_previousOwnersController.text.trim()) ??
+          detail?.vehicle.previousOwners ??
+          stock?.previousOwners,
+      "fuelType": _fuelController.text.trim(),
+      "engineSize": _engineSizeController.text.trim().isEmpty
+          ? detail?.vehicle.engineSize
+          : _engineSizeController.text.trim(),
+      "transmission": _transmissionController.text.trim(),
+      "mileage": int.tryParse(_mileageController.text.trim()),
+      "vin": _vinController.text.trim().isEmpty
+          ? detail?.vehicle.vin
+          : _vinController.text.trim(),
+      "conditionNotes": _conditionNotesController.text.trim().isEmpty
+          ? detail?.vehicle.conditionNotes ?? stock?.conditionNotes
+          : _conditionNotesController.text.trim(),
+      "description": _descriptionController.text.trim().isEmpty
+          ? detail?.vehicle.description ?? stock?.description
+          : _descriptionController.text.trim(),
+      "askPrice":
+          num.tryParse(_priceController.text.trim()) ?? detail?.stock.askPrice,
+      "currencyCode":
+          detail?.stock.currencyCode ?? stock?.currencyCode ?? "GBP",
+      "customerName": detail?.customer.name ?? stock?.customerName,
+      "customerEmail": detail?.customer.email ?? stock?.customerEmail,
+      "customerPhone": detail?.customer.phone ?? stock?.customerPhone,
+      "customerWhatsapp": detail?.customer.whatsapp ?? stock?.customerWhatsapp,
+    };
   }
 
   @override
@@ -261,11 +373,13 @@ class _AddStockScreenState extends State<AddStockScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-          children: [
+      body: _isDetailLoading
+          ? const Center(child: CircularProgressIndicator(color: brandYellow))
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -283,7 +397,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _isEditMode
-                        ? 'Update the fields below. Save is waiting for the edit endpoint.'
+                        ? 'Update the stock information below and save your changes.'
                         : 'Create the stock vehicle first. After that, use Manage Gallery from the stock list to upload and arrange photos.',
                     style: TextStyle(color: Colors.grey[700], height: 1.4),
                   ),
@@ -422,11 +536,33 @@ class _AddStockScreenState extends State<AddStockScreen> {
             _buildSection(
               title: 'Vehicle Details',
               subtitle: 'Required fields for stock creation',
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildField(
+                                controller: _stockNumberController,
+                                label: 'Stock Number',
+                                hint: 'STK-NT06KVJ',
+                                isRequired: false,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildField(
+                                controller: _referenceNumberController,
+                                label: 'Reference',
+                                hint: 'REF-1001',
+                                isRequired: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
                         child: _buildField(
                           controller: _makeController,
                           label: 'Make',
@@ -498,6 +634,30 @@ class _AddStockScreenState extends State<AddStockScreen> {
                     children: [
                       Expanded(
                         child: _buildField(
+                          controller: _doorsController,
+                          label: 'Doors',
+                          hint: '5',
+                          isRequired: false,
+                          isNumber: true,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildField(
+                          controller: _previousOwnersController,
+                          label: 'Previous Owners',
+                          hint: '2',
+                          isRequired: false,
+                          isNumber: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildField(
                           controller: _transmissionController,
                           label: 'Transmission',
                           hint: 'Automatic',
@@ -536,6 +696,29 @@ class _AddStockScreenState extends State<AddStockScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: _vinController,
+                    label: 'VIN',
+                    hint: 'WVWZZZ1KZ6W000001',
+                    isRequired: false,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: _conditionNotesController,
+                    label: 'Condition Notes',
+                    hint: 'Updated from mobile app',
+                    isRequired: false,
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildField(
+                    controller: _descriptionController,
+                    label: 'Description',
+                    hint: 'Retail ready',
+                    isRequired: false,
+                    maxLines: 3,
+                  ),
                 ],
               ),
             ),
@@ -549,9 +732,9 @@ class _AddStockScreenState extends State<AddStockScreen> {
                     : Text(_isEditMode ? 'Save Changes' : 'Create Stock'),
               ),
             ),
-          ],
-        ),
-      ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -600,11 +783,13 @@ class _AddStockScreenState extends State<AddStockScreen> {
     bool isNumber = false,
     bool isRequired = true,
     TextCapitalization textCaps = TextCapitalization.none,
+    int maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       textCapitalization: textCaps,
+      maxLines: maxLines,
       onChanged: (_) => setState(() {}),
       validator: (value) {
         final text = value?.trim() ?? '';

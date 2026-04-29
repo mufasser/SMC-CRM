@@ -147,9 +147,18 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       return;
     }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AddStockScreen(initialStock: stock)),
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddStockScreen(
+          stockId: widget.stockId,
+          initialStock: stock,
+        ),
+      ),
     );
+
+    if (updated == true && mounted) {
+      _loadDetail();
+    }
   }
 
   Future<void> _openGalleryManager() async {

@@ -28,7 +28,6 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
 
   List<StockGalleryImage> _images = [];
   String? _featuredImageId;
-  String? _selectedImageId;
   String? _draggingImageId;
   bool _isLoading = true;
   bool _isUploading = false;
@@ -42,30 +41,6 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
   void initState() {
     super.initState();
     _loadGallery();
-  }
-
-  StockGalleryImage? get _selectedImage {
-    if (_images.isEmpty) {
-      return null;
-    }
-    for (final image in _images) {
-      if (image.id == _selectedImageId) {
-        return image;
-      }
-    }
-    return _featuredImage ?? _images.first;
-  }
-
-  StockGalleryImage? get _featuredImage {
-    if (_images.isEmpty || _featuredImageId == null) {
-      return null;
-    }
-    for (final image in _images) {
-      if (image.id == _featuredImageId) {
-        return image;
-      }
-    }
-    return null;
   }
 
   Future<void> _loadGallery() async {
@@ -95,9 +70,6 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
     setState(() {
       _images = images;
       _featuredImageId = featuredImageId;
-      _selectedImageId = images.any((image) => image.id == _selectedImageId)
-          ? _selectedImageId
-          : featuredImageId ?? (images.isNotEmpty ? images.first.id : null);
       _isLoading = false;
       _hasPendingOrder = false;
     });
@@ -323,11 +295,6 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
       setState(() {
         _images.removeWhere((item) => item.id == image.id);
         _featuredImageId = nextFeaturedImageId;
-        if (_selectedImageId == image.id) {
-          _selectedImageId = _images.isNotEmpty
-              ? (nextFeaturedImageId ?? _images.first.id)
-              : null;
-        }
         _hasPendingOrder = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -471,7 +438,7 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: Column(
                         children: [
-                          _buildPreviewCard(),
+                          _buildUsageCard(),
                           const SizedBox(height: 14),
                           _buildToolbar(),
                           const SizedBox(height: 18),
@@ -573,28 +540,13 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
     );
   }
 
-  Widget _buildPreviewCard() {
-    final selectedImage = _selectedImage;
-
+  Widget _buildUsageCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFD84D),
-            Color(0xFFF4BF18),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -623,7 +575,7 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: const Color(0xFFFACC14).withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text(
@@ -640,69 +592,17 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
           Text(
             widget.title,
             style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
               color: Colors.black,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Tap any thumbnail to open it large. Long press and drag thumbnails to change the selling order.',
+            'Tap image to open large. Tap star to make featured. Long press and drag to reorder.',
             style: TextStyle(
-              color: Colors.black.withValues(alpha: 0.72),
+              color: Colors.grey[700],
               height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: selectedImage == null ? null : () => _openLargePreview(selectedImage),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: AspectRatio(
-                aspectRatio: 16 / 10,
-                child: selectedImage == null
-                    ? Container(
-                        color: Colors.white,
-                        child: const Icon(
-                          Icons.photo_library_outlined,
-                          size: 52,
-                          color: Colors.grey,
-                        ),
-                      )
-                    : Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            selectedImage.url,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: Colors.white,
-                              child: const Icon(
-                                Icons.broken_image_outlined,
-                                size: 52,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 12,
-                            top: 12,
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.56),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.open_in_full,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
             ),
           ),
         ],

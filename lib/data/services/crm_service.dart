@@ -279,6 +279,50 @@ class CRMService {
     }
   }
 
+  Future<Map<String, dynamic>> updateStock({
+    required String stockId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final cleanedPayload = Map<String, dynamic>.fromEntries(
+        payload.entries.where(
+          (entry) =>
+              entry.value != null &&
+              (entry.value is! String || (entry.value as String).trim().isNotEmpty),
+        ),
+      );
+
+      final response = await _dio.patch(
+        '/stock/$stockId',
+        data: cleanedPayload,
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      debugPrint(
+        "Update stock response: status=${response.statusCode}, body=$payloadResponse",
+      );
+
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Failed to update stock vehicle.',
+        'data': payloadResponse['data'],
+      };
+    } catch (e) {
+      debugPrint("Update stock API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to update stock right now.',
+      };
+    }
+  }
+
   Future<StockGalleryData?> fetchStockGallery(String stockId) async {
     try {
       final token = await _auth.getToken();
