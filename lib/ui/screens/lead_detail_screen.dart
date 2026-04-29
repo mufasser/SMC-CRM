@@ -106,7 +106,7 @@ class LeadDetailScreen extends StatelessWidget {
                       _InfoChip(
                         label: 'Valuation',
                         value:
-                            "${lead.valuationCurrency ?? 'GBP'} ${lead.valuationAmount ?? '0'}",
+                            "${lead.valuationCurrency ?? '£'} ${lead.valuationAmount ?? '0'}",
                       ),
                       _InfoChip(
                         label: 'Source',
@@ -151,10 +151,16 @@ class LeadDetailScreen extends StatelessWidget {
                     title: 'Vehicle',
                     child: Column(
                       children: [
-                        _detailRow('Registration', lead.vehicle.registrationNumber),
+                        _detailRow(
+                          'Registration',
+                          lead.vehicle.registrationNumber,
+                        ),
                         _detailRow('Make', lead.vehicle.make),
                         _detailRow('Model', lead.vehicle.model),
-                        _detailRow('Variant', lead.vehicle.variant ?? 'Not available'),
+                        _detailRow(
+                          'Variant',
+                          lead.vehicle.variant ?? 'Not available',
+                        ),
                         _detailRow(
                           'Year',
                           lead.vehicle.registrationYear?.toString() ??
@@ -309,7 +315,8 @@ class _ActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final whatsappPhone = lead.customer.whatsappNumber ?? lead.customer.phoneNumber;
+    final whatsappPhone =
+        lead.customer.whatsappNumber ?? lead.customer.phoneNumber;
     final email = lead.customer.email;
 
     return SafeArea(
@@ -402,7 +409,9 @@ class _ActionBar extends StatelessWidget {
     if (clean.startsWith('0')) {
       clean = '44${clean.substring(1)}';
     }
-    if (!clean.startsWith('44') && !clean.startsWith('+44') && !clean.startsWith('+')) {
+    if (!clean.startsWith('44') &&
+        !clean.startsWith('+44') &&
+        !clean.startsWith('+')) {
       clean = '44$clean';
     }
     return clean.replaceAll('+', '');
@@ -462,10 +471,7 @@ class _InfoChip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
           const SizedBox(height: 2),
           Text(
             value,
@@ -494,10 +500,7 @@ class _QuickActionButton extends StatelessWidget {
         child: SizedBox(
           height: 52,
           width: 52,
-          child: Icon(
-            icon,
-            color: onTap == null ? Colors.grey : Colors.black,
-          ),
+          child: Icon(icon, color: onTap == null ? Colors.grey : Colors.black),
         ),
       ),
     );

@@ -41,7 +41,7 @@ class SMCCRMApp extends StatelessWidget {
     const Color brandBlack = Color(0xFF000000);
 
     return MaterialApp(
-      title: 'SMC CRM',
+      title: 'Sell My Car Today',
       debugShowCheckedModeBanner: false,
       initialRoute: initialRoute,
       theme: ThemeData(

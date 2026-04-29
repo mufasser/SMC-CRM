@@ -1,10 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
-import '../../data/services/image_service.dart';
 import '../widgets/uk_reg_plate.dart';
 
 class AddStockScreen extends StatefulWidget {
@@ -19,9 +15,7 @@ class AddStockScreen extends StatefulWidget {
 class _AddStockScreenState extends State<AddStockScreen> {
   final _formKey = GlobalKey<FormState>();
   final CRMService _crmService = CRMService();
-  final ImageService _imageService = ImageService();
-
-  final List<XFile> _selectedImages = [];
+  List<String> _prefillImageUrls = [];
 
   late final TextEditingController _regController;
   late final TextEditingController _mileageController;
@@ -29,9 +23,11 @@ class _AddStockScreenState extends State<AddStockScreen> {
   late final TextEditingController _modelController;
   late final TextEditingController _variantController;
   late final TextEditingController _yearController;
+  late final TextEditingController _bodyTypeController;
   late final TextEditingController _colorController;
   late final TextEditingController _fuelController;
   late final TextEditingController _transmissionController;
+  late final TextEditingController _engineSizeController;
   late final TextEditingController _priceController;
 
   bool _isFetching = false;
@@ -44,7 +40,9 @@ class _AddStockScreenState extends State<AddStockScreen> {
   void initState() {
     super.initState();
     final stock = widget.initialStock;
-    _regController = TextEditingController(text: stock?.registrationNumber ?? '');
+    _regController = TextEditingController(
+      text: stock?.registrationNumber ?? '',
+    );
     _mileageController = TextEditingController(
       text: stock?.mileage?.toString() ?? '',
     );
@@ -54,9 +52,13 @@ class _AddStockScreenState extends State<AddStockScreen> {
     _yearController = TextEditingController(
       text: stock?.registrationYear?.toString() ?? '',
     );
+    _bodyTypeController = TextEditingController(text: stock?.bodyType ?? '');
     _colorController = TextEditingController(text: stock?.colour ?? '');
     _fuelController = TextEditingController(text: stock?.fuelType ?? '');
-    _transmissionController = TextEditingController(text: stock?.transmission ?? '');
+    _transmissionController = TextEditingController(
+      text: stock?.transmission ?? '',
+    );
+    _engineSizeController = TextEditingController(text: '');
     _priceController = TextEditingController(text: stock?.askPrice ?? '');
   }
 
@@ -68,52 +70,18 @@ class _AddStockScreenState extends State<AddStockScreen> {
     _modelController.dispose();
     _variantController.dispose();
     _yearController.dispose();
+    _bodyTypeController.dispose();
     _colorController.dispose();
     _fuelController.dispose();
     _transmissionController.dispose();
+    _engineSizeController.dispose();
     _priceController.dispose();
     super.dispose();
   }
 
-  void _showImageSourceOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
-              onTap: () async {
-                Navigator.pop(context);
-                final img = await _imageService.takePhoto();
-                if (img != null && mounted) {
-                  setState(() => _selectedImages.add(img));
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () async {
-                Navigator.pop(context);
-                final imgs = await _imageService.pickGalleryImages();
-                if (imgs.isNotEmpty && mounted) {
-                  setState(() => _selectedImages.addAll(imgs));
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _fetchVehicleData() async {
-    if (_regController.text.trim().isEmpty || _mileageController.text.trim().isEmpty) {
+    if (_regController.text.trim().isEmpty ||
+        _mileageController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter registration and mileage first.')),
       );
@@ -121,14 +89,66 @@ class _AddStockScreenState extends State<AddStockScreen> {
     }
 
     setState(() => _isFetching = true);
-    await Future.delayed(const Duration(seconds: 1));
+
+    final result = await _crmService.fetchStockPrefill(
+      registrationNumber: _regController.text.trim().toUpperCase(),
+      mileage: int.tryParse(_mileageController.text.trim()) ?? 0,
+    );
+
     if (!mounted) {
       return;
     }
-    setState(() => _isFetching = false);
+
+    final success = result['success'] == true;
+    final data = result['data'] as Map<String, dynamic>?;
+    final prefill = (data?['prefill'] as Map<String, dynamic>?) ?? const {};
+    final media = (data?['media'] as Map<String, dynamic>?) ?? const {};
+    final mediaImages = (media['images'] as List?) ?? const [];
+    final heroImage = media['heroImageUrl']?.toString();
+
+    if (!success || prefill.isEmpty) {
+      setState(() => _isFetching = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to find vehicle')));
+      return;
+    }
+
+    final prefillUrls = {
+      if (heroImage != null && heroImage.isNotEmpty) heroImage,
+      ...mediaImages
+          .map((item) {
+            if (item is Map<String, dynamic>) {
+              return item['imageUrl']?.toString() ?? '';
+            }
+            return '';
+          })
+          .where((item) => item.isNotEmpty),
+    }.toList();
+
+    setState(() {
+      _regController.text =
+          prefill['registrationNumber']?.toString() ?? _regController.text;
+      _mileageController.text =
+          prefill['mileage']?.toString() ?? _mileageController.text;
+      _makeController.text = prefill['make']?.toString() ?? '';
+      _modelController.text = prefill['model']?.toString() ?? '';
+      _variantController.text = prefill['variant']?.toString() ?? '';
+      _yearController.text = prefill['registrationYear']?.toString() ?? '';
+      _bodyTypeController.text = prefill['bodyType']?.toString() ?? '';
+      _colorController.text = prefill['colour']?.toString() ?? '';
+      _fuelController.text = prefill['fuelType']?.toString() ?? '';
+      _transmissionController.text = prefill['transmission']?.toString() ?? '';
+      _engineSizeController.text = prefill['engineSize']?.toString() ?? '';
+      _prefillImageUrls = prefillUrls;
+      _isFetching = false;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Vehicle lookup API pending. I left the form ready for it.'),
+      SnackBar(
+        content: Text(
+          result['message']?.toString() ?? 'Vehicle details loaded',
+        ),
       ),
     );
   }
@@ -140,17 +160,12 @@ class _AddStockScreenState extends State<AddStockScreen> {
       return;
     }
 
-    if (_selectedImages.isEmpty && !_isEditMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload at least one vehicle image.')),
-      );
-      return;
-    }
-
     if (_isEditMode) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Edit API not shared yet. Form is ready once endpoint is available.'),
+          content: Text(
+            'Edit API not shared yet. Form is ready once endpoint is available.',
+          ),
         ),
       );
       return;
@@ -168,17 +183,23 @@ class _AddStockScreenState extends State<AddStockScreen> {
           ? null
           : _variantController.text.trim(),
       "registrationYear": int.tryParse(_yearController.text.trim()),
+      "bodyType": _bodyTypeController.text.trim().isEmpty
+          ? null
+          : _bodyTypeController.text.trim(),
       "colour": _colorController.text.trim(),
       "fuelType": _fuelController.text.trim(),
+      "engineSize": _engineSizeController.text.trim().isEmpty
+          ? null
+          : _engineSizeController.text.trim(),
       "transmission": _transmissionController.text.trim(),
       "mileage": int.tryParse(_mileageController.text.trim()),
       "askPrice": num.tryParse(_priceController.text.trim()),
-      "currencyCode": "GBP",
+      "currencyCode": "£",
     };
 
     final result = await _crmService.createStock(
       payload: payload,
-      filePaths: _selectedImages.map((file) => file.path).toList(),
+      filePaths: const [],
       isPublic: _isPublic,
     );
 
@@ -190,7 +211,11 @@ class _AddStockScreenState extends State<AddStockScreen> {
 
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stock created successfully.')),
+        const SnackBar(
+          content: Text(
+            'Stock created successfully. Use Manage Gallery from the stock list next.',
+          ),
+        ),
       );
       Navigator.pop(context, true);
       return;
@@ -198,7 +223,9 @@ class _AddStockScreenState extends State<AddStockScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result['message']?.toString() ?? 'Failed to create stock.'),
+        content: Text(
+          result['message']?.toString() ?? 'Failed to create stock.',
+        ),
       ),
     );
   }
@@ -257,7 +284,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
                   Text(
                     _isEditMode
                         ? 'Update the fields below. Save is waiting for the edit endpoint.'
-                        : 'Enter reg and mileage first, then you can fetch vehicle info later or fill the form manually now.',
+                        : 'Create the stock vehicle first. After that, use Manage Gallery from the stock list to upload and arrange photos.',
                     style: TextStyle(color: Colors.grey[700], height: 1.4),
                   ),
                   const SizedBox(height: 16),
@@ -354,89 +381,43 @@ class _AddStockScreenState extends State<AddStockScreen> {
                       'Visible In API',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: const Text('Matches your `isPublic` stock upload flag'),
+                    subtitle: const Text(
+                      'Controls whether this stock item is visible in the API',
+                    ),
                     onChanged: (value) => setState(() => _isPublic = value),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            _buildSection(
-              title: 'Gallery',
-              subtitle: 'Upload multiple vehicle images',
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 108,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _selectedImages.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return GestureDetector(
-                            onTap: _showImageSourceOptions,
-                            child: Container(
-                              width: 108,
-                              margin: const EdgeInsets.only(right: 10),
-                              decoration: BoxDecoration(
-                                color: brandYellow.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: brandYellow.withValues(alpha: 0.45),
-                                ),
-                              ),
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_a_photo, color: Colors.black),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Add Images',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-                        return Stack(
-                          children: [
-                            Container(
-                              width: 108,
-                              margin: const EdgeInsets.only(right: 10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                image: DecorationImage(
-                                  image: FileImage(File(_selectedImages[index - 1].path)),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 14,
-                              top: 6,
-                              child: GestureDetector(
-                                onTap: () => setState(
-                                  () => _selectedImages.removeAt(index - 1),
-                                ),
-                                child: const CircleAvatar(
-                                  radius: 12,
-                                  backgroundColor: Colors.black87,
-                                  child: Icon(Icons.close, size: 14, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+            if (_prefillImageUrls.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _buildSection(
+                title: 'Vehicle Preview',
+                subtitle:
+                    'Reference images returned by the vehicle prefill service',
+                child: SizedBox(
+                  height: 108,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _prefillImageUrls.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      return Container(
+                        width: 108,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          image: DecorationImage(
+                            image: NetworkImage(_prefillImageUrls[index]),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 20),
             _buildSection(
               title: 'Vehicle Details',
@@ -488,6 +469,15 @@ class _AddStockScreenState extends State<AddStockScreen> {
                     children: [
                       Expanded(
                         child: _buildField(
+                          controller: _bodyTypeController,
+                          label: 'Body Type',
+                          hint: '5 DOOR HATCHBACK',
+                          isRequired: false,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildField(
                           controller: _colorController,
                           label: 'Colour',
                           hint: 'GREY',
@@ -516,9 +506,31 @@ class _AddStockScreenState extends State<AddStockScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _buildField(
+                          controller: _engineSizeController,
+                          label: 'Engine Size',
+                          hint: '1984',
+                          isRequired: false,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildField(
                           controller: _priceController,
                           label: 'Ask Price',
                           hint: '9200',
+                          isNumber: true,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildField(
+                          controller: _mileageController,
+                          label: 'Mileage',
+                          hint: '12222',
                           isNumber: true,
                         ),
                       ),
@@ -586,6 +598,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
     required String label,
     required String hint,
     bool isNumber = false,
+    bool isRequired = true,
     TextCapitalization textCaps = TextCapitalization.none,
   }) {
     return TextFormField(
@@ -595,7 +608,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
       onChanged: (_) => setState(() {}),
       validator: (value) {
         final text = value?.trim() ?? '';
-        if (label == 'Variant' && text.isEmpty) {
+        if (!isRequired && text.isEmpty) {
           return null;
         }
         if (text.isEmpty) {
@@ -603,10 +616,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
         }
         return null;
       },
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint),
     );
   }
 }

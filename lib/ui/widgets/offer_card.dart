@@ -96,9 +96,7 @@ class OfferCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        offer.expiresAt == null
-                            ? "No expiry date"
-                            : "Expires ${_formatDate(offer.expiresAt!.toLocal())}",
+                        "Created ${_formatDate(offer.createdAt.toLocal())}",
                         style: TextStyle(color: Colors.grey[500], fontSize: 11),
                       ),
                     ],
@@ -122,7 +120,9 @@ class OfferCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _statusColor(offer.status).withValues(alpha: 0.16),
+                        color: _statusColor(
+                          offer.status,
+                        ).withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

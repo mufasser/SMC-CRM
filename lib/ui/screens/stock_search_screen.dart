@@ -5,6 +5,7 @@ import '../../core/models/listing_filters.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
 import 'add_stock_screen.dart';
+import 'stock_gallery_screen.dart';
 import '../widgets/stock_card.dart';
 import 'stock_detail_screen.dart';
 import '../widgets/list_filter_sheet.dart';
@@ -150,6 +151,23 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     );
   }
 
+  Future<void> _openGalleryManager(StockModel stock) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => StockGalleryScreen(
+          stockId: stock.id,
+          title: stock.displayTitle,
+          registration: stock.displayRegistration,
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      _fetchStock(isRefresh: true);
+    }
+  }
+
   Future<void> _openFilters() async {
     FocusManager.instance.primaryFocus?.unfocus();
     final result = await showListingFilterSheet(
@@ -251,6 +269,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                           return InventoryCard(
                             stock: _stock[index],
                             onTap: () => _openStockDetail(_stock[index]),
+                            onManageGallery: () => _openGalleryManager(_stock[index]),
                           );
                         }
 

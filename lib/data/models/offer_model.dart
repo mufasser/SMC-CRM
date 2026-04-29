@@ -46,7 +46,7 @@ class OfferModel {
       id: _stringValue(json['id']),
       leadId: _stringValue(json['leadId']),
       amount: _stringValue(json['amount'], fallback: '0'),
-      currency: _stringValue(json['currency'], fallback: 'GBP'),
+      currency: _stringValue(json['currency'], fallback: '£'),
       message: _nullableString(json['message']),
       expiresAt: _parseDate(json['expiresAt']),
       status: _stringValue(json['status'], fallback: 'PENDING'),

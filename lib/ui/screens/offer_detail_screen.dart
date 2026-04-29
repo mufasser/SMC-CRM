@@ -111,10 +111,8 @@ class OfferDetailScreen extends StatelessWidget {
                         value: "${offer.currency} ${offer.amount}",
                       ),
                       _InfoChip(
-                        label: 'Expires',
-                        value: offer.expiresAt == null
-                            ? 'Not set'
-                            : _formatDateTime(offer.expiresAt!.toLocal()),
+                        label: 'Created',
+                        value: _formatDateTime(offer.createdAt.toLocal()),
                       ),
                     ],
                   ),
@@ -123,10 +121,13 @@ class OfferDetailScreen extends StatelessWidget {
                     title: 'Offer Summary',
                     child: Column(
                       children: [
-                        _detailRow('Offer ID', offer.id),
-                        _detailRow('Lead ID', offer.leadId),
+                        // _detailRow('Offer ID', offer.id),
+                        // _detailRow('Lead ID', offer.leadId),
                         _detailRow('Status', offer.status),
-                        _detailRow('Amount', "${offer.currency} ${offer.amount}"),
+                        _detailRow(
+                          'Amount',
+                          "${offer.currency} ${offer.amount}",
+                        ),
                         _detailRow(
                           'Created',
                           _formatDateTime(offer.createdAt.toLocal()),
@@ -197,10 +198,16 @@ class OfferDetailScreen extends StatelessWidget {
                     title: 'Vehicle',
                     child: Column(
                       children: [
-                        _detailRow('Registration', lead.vehicle.registrationNumber),
+                        _detailRow(
+                          'Registration',
+                          lead.vehicle.registrationNumber,
+                        ),
                         _detailRow('Make', lead.vehicle.make),
                         _detailRow('Model', lead.vehicle.model),
-                        _detailRow('Variant', lead.vehicle.variant ?? 'Not available'),
+                        _detailRow(
+                          'Variant',
+                          lead.vehicle.variant ?? 'Not available',
+                        ),
                         _detailRow(
                           'Year',
                           lead.vehicle.registrationYear?.toString() ??
@@ -316,7 +323,8 @@ class _OfferActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lead = offer.lead;
-    final whatsappPhone = lead.customer.whatsappNumber ?? lead.customer.phoneNumber;
+    final whatsappPhone =
+        lead.customer.whatsappNumber ?? lead.customer.phoneNumber;
     final email = lead.customer.email;
 
     return SafeArea(
@@ -409,7 +417,9 @@ class _OfferActionBar extends StatelessWidget {
     if (clean.startsWith('0')) {
       clean = '44${clean.substring(1)}';
     }
-    if (!clean.startsWith('44') && !clean.startsWith('+44') && !clean.startsWith('+')) {
+    if (!clean.startsWith('44') &&
+        !clean.startsWith('+44') &&
+        !clean.startsWith('+')) {
       clean = '44$clean';
     }
     return clean.replaceAll('+', '');
@@ -471,10 +481,7 @@ class _InfoChip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
           const SizedBox(height: 2),
           Text(
             value,
@@ -507,10 +514,7 @@ class _QuickActionButton extends StatelessWidget {
         child: SizedBox(
           height: 52,
           width: 52,
-          child: Icon(
-            icon,
-            color: onTap == null ? Colors.grey : Colors.black,
-          ),
+          child: Icon(icon, color: onTap == null ? Colors.grey : Colors.black),
         ),
       ),
     );

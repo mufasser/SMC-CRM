@@ -62,7 +62,10 @@ class StockModel {
   });
 
   String get displayTitle {
-    final title = [make, model].whereType<String>().where((e) => e.isNotEmpty).join(' ');
+    final title = [
+      make,
+      model,
+    ].whereType<String>().where((e) => e.isNotEmpty).join(' ');
     return title.isEmpty ? stockNumber : title;
   }
 
@@ -96,7 +99,7 @@ class StockModel {
       conditionNotes: _nullableString(json['conditionNotes']),
       description: _nullableString(json['description']),
       askPrice: _nullableString(json['askPrice']),
-      currencyCode: _stringValue(json['currencyCode'], fallback: 'GBP'),
+      currencyCode: _stringValue(json['currencyCode'], fallback: '£'),
       customerName: _nullableString(json['customerName']),
       customerEmail: _nullableString(json['customerEmail']),
       customerPhone: _nullableString(json['customerPhone']),
@@ -147,11 +150,15 @@ class StockDetailModel {
     final imageList = (json['images'] as List?) ?? const [];
     return StockDetailModel(
       id: _stringValue(json['id']),
-      dealer: DealerInfo.fromJson((json['dealer'] as Map<String, dynamic>?) ?? const {}),
+      dealer: DealerInfo.fromJson(
+        (json['dealer'] as Map<String, dynamic>?) ?? const {},
+      ),
       lead: json['lead'] == null
           ? null
           : StockLeadInfo.fromJson(json['lead'] as Map<String, dynamic>),
-      stock: StockInfo.fromJson((json['stock'] as Map<String, dynamic>?) ?? const {}),
+      stock: StockInfo.fromJson(
+        (json['stock'] as Map<String, dynamic>?) ?? const {},
+      ),
       customer: StockCustomer.fromJson(
         (json['customer'] as Map<String, dynamic>?) ?? const {},
       ),
@@ -233,7 +240,7 @@ class StockInfo {
       isVisibleInApi: json['isVisibleInApi'] == true,
       stockNumber: _stringValue(json['stockNumber']),
       askPrice: _nullableDouble(json['askPrice']),
-      currencyCode: _stringValue(json['currencyCode'], fallback: 'GBP'),
+      currencyCode: _stringValue(json['currencyCode'], fallback: '£'),
       createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
       updatedAt: _parseDate(json['updatedAt']),
     );
@@ -336,6 +343,75 @@ class StockSummary {
       imageCount: _nullableInt(json['imageCount']) ?? 0,
       hasLinkedLead: json['hasLinkedLead'] == true,
       hasFeaturedImage: json['hasFeaturedImage'] == true,
+    );
+  }
+}
+
+class StockGalleryImage {
+  final String id;
+  final String fileName;
+  final String originalFileName;
+  final String url;
+  final String mimeType;
+  final int fileSize;
+  final bool isPublic;
+  final int sortOrder;
+  final DateTime? createdAt;
+
+  const StockGalleryImage({
+    required this.id,
+    required this.fileName,
+    required this.originalFileName,
+    required this.url,
+    required this.mimeType,
+    required this.fileSize,
+    required this.isPublic,
+    required this.sortOrder,
+    this.createdAt,
+  });
+
+  factory StockGalleryImage.fromJson(Map<String, dynamic> json) {
+    return StockGalleryImage(
+      id: _stringValue(json['id']),
+      fileName: _stringValue(json['fileName']),
+      originalFileName: _stringValue(
+        json['originalFileName'],
+        fallback: _stringValue(json['fileName']),
+      ),
+      url: _stringValue(json['url']),
+      mimeType: _stringValue(json['mimeType'], fallback: 'image/jpeg'),
+      fileSize: _nullableInt(json['fileSize']) ?? 0,
+      isPublic: json['isPublic'] == true,
+      sortOrder: _nullableInt(json['sortOrder']) ?? 0,
+      createdAt: _parseDate(json['createdAt']),
+    );
+  }
+}
+
+class StockGalleryData {
+  final List<StockGalleryImage> images;
+  final String? featuredImageId;
+  final StockGalleryImage? featuredImage;
+
+  const StockGalleryData({
+    required this.images,
+    this.featuredImageId,
+    this.featuredImage,
+  });
+
+  factory StockGalleryData.fromJson(Map<String, dynamic> json) {
+    final imageList = (json['images'] as List?) ?? const [];
+    return StockGalleryData(
+      images: imageList
+          .whereType<Map<String, dynamic>>()
+          .map(StockGalleryImage.fromJson)
+          .toList(),
+      featuredImageId: _nullableString(json['featuredImageId']),
+      featuredImage: json['featuredImage'] is Map<String, dynamic>
+          ? StockGalleryImage.fromJson(
+              json['featuredImage'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 }

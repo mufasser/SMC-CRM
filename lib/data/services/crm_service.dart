@@ -224,15 +224,25 @@ class CRMService {
     try {
       final token = await _auth.getToken();
       final formData = FormData();
+      final cleanedPayload = Map<String, dynamic>.fromEntries(
+        payload.entries.where(
+          (entry) =>
+              entry.value != null &&
+              (entry.value is! String || (entry.value as String).trim().isNotEmpty),
+        ),
+      );
 
-      formData.fields.add(MapEntry('payload', jsonEncode(payload)));
+      formData.fields.add(MapEntry('payload', jsonEncode(cleanedPayload)));
       formData.fields.add(MapEntry('isPublic', isPublic.toString()));
 
       for (final path in filePaths) {
         formData.files.add(
           MapEntry(
-            'files',
-            await MultipartFile.fromFile(path),
+            'files[]',
+            await MultipartFile.fromFile(
+              path,
+              filename: path.split('/').last,
+            ),
           ),
         );
       }
@@ -241,18 +251,23 @@ class CRMService {
         '/stock',
         data: formData,
         options: Options(
+          validateStatus: (status) => status != null && status < 600,
           headers: {
             "Authorization": "Bearer $token",
-            "Content-Type": "multipart/form-data",
           },
         ),
       );
 
       final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      debugPrint(
+        "Create stock response: status=${response.statusCode}, body=$payloadResponse",
+      );
 
       return {
-        'success': response.statusCode == 200 && payloadResponse['success'] == true,
-        'message': payloadResponse['message']?.toString(),
+        'success':
+            (response.statusCode == 200 || response.statusCode == 201) &&
+            payloadResponse['success'] == true,
+        'message': payloadResponse['message']?.toString() ?? 'Failed to create stock.',
         'data': payloadResponse['data'],
       };
     } catch (e) {
@@ -260,6 +275,217 @@ class CRMService {
       return {
         'success': false,
         'message': 'Unable to create stock right now.',
+      };
+    }
+  }
+
+  Future<StockGalleryData?> fetchStockGallery(String stockId) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.get(
+        '/stock/$stockId/images',
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return StockGalleryData.fromJson(
+          response.data as Map<String, dynamic>? ?? const {},
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Stock gallery API Error: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadStockImages({
+    required String stockId,
+    required List<String> filePaths,
+    bool isPublic = true,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final formData = FormData();
+
+      formData.fields.add(MapEntry('isPublic', isPublic.toString()));
+
+      for (final path in filePaths) {
+        formData.files.add(
+          MapEntry(
+            'files',
+            await MultipartFile.fromFile(
+              path,
+              filename: path.split('/').last,
+            ),
+          ),
+        );
+      }
+
+      final response = await _dio.post(
+        '/stock/$stockId/images',
+        data: formData,
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      debugPrint(
+        "Upload stock images response: status=${response.statusCode}, body=$payloadResponse",
+      );
+      return {
+        'success':
+            (response.statusCode == 200 || response.statusCode == 201) &&
+            payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ?? 'Failed to upload gallery images.',
+      };
+    } catch (e) {
+      debugPrint("Stock image upload API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to upload images right now.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateStockGallery({
+    required String stockId,
+    String? featuredImageId,
+    List<String>? orderedImageIds,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final payload = <String, dynamic>{};
+
+      if (featuredImageId != null && featuredImageId.trim().isNotEmpty) {
+        payload['featuredImageId'] = featuredImageId.trim();
+      }
+      if (orderedImageIds != null && orderedImageIds.isNotEmpty) {
+        payload['orderedImageIds'] = orderedImageIds;
+      }
+
+      final response = await _dio.patch(
+        '/stock/$stockId/images',
+        data: payload,
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ?? 'Unable to update gallery right now.',
+      };
+    } catch (e) {
+      debugPrint("Stock gallery update API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to update gallery right now.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteStockImage({
+    required String stockId,
+    required String imageId,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.delete(
+        '/stock/$stockId/images/$imageId',
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Unable to delete image right now.',
+        'featuredImageId': payloadResponse['featuredImageId']?.toString(),
+      };
+    } catch (e) {
+      debugPrint("Stock image delete API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to delete image right now.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchDashboardStats() async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.get(
+        '/dashboard/stats',
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final payload = response.data as Map<String, dynamic>;
+        return {
+          'success': true,
+          'stats': (payload['stats'] as Map<String, dynamic>?) ?? const {},
+          'summary': (payload['summary'] as Map<String, dynamic>?) ?? const {},
+          'generatedAt': payload['generatedAt']?.toString(),
+          'message': payload['message']?.toString(),
+        };
+      }
+
+      return {
+        'success': false,
+        'stats': const <String, dynamic>{},
+        'summary': const <String, dynamic>{},
+        'generatedAt': null,
+      };
+    } catch (e) {
+      debugPrint("Dashboard stats API Error: $e");
+      return {
+        'success': false,
+        'stats': const <String, dynamic>{},
+        'summary': const <String, dynamic>{},
+        'generatedAt': null,
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchStockPrefill({
+    required String registrationNumber,
+    required int mileage,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.post(
+        '/stock/prefill',
+        data: {
+          "registrationNumber": registrationNumber,
+          "mileage": mileage,
+        },
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      final payload = response.data as Map<String, dynamic>? ?? const {};
+      final success = response.statusCode == 200 && payload['success'] == true;
+
+      return {
+        'success': success,
+        'message': payload['message']?.toString(),
+        'data': payload['data'],
+      };
+    } catch (e) {
+      debugPrint("Stock prefill API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to find vehicle',
       };
     }
   }

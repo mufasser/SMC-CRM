@@ -28,8 +28,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<StockModel> _stock = [];
 
   Map<String, dynamic> _stats = {};
+  Map<String, dynamic> _summary = {};
   String _userName = '';
   String _tenantName = '';
+  String? _generatedAt;
   bool _isLoading = true;
 
   @override
@@ -44,6 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final results = await Future.wait<dynamic>([
+        _crmService.fetchDashboardStats(),
         _authService.getDashboardStats(),
         _authService.getUserName(),
         _authService.getTenantName(),
@@ -52,13 +55,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _crmService.fetchStock(limit: 10),
       ]);
 
+      final liveStatsResponse = results[0] as Map<String, dynamic>;
+      final cachedStats = results[1] as Map<String, dynamic>;
+      final liveStats =
+          (liveStatsResponse['stats'] as Map<String, dynamic>?) ?? const {};
+      final resolvedStats = liveStats.isNotEmpty ? liveStats : cachedStats;
+      final resolvedSummary =
+          (liveStatsResponse['summary'] as Map<String, dynamic>?) ?? const {};
+      final generatedAt = liveStatsResponse['generatedAt']?.toString();
+
+      if (liveStats.isNotEmpty) {
+        await _authService.saveDashboardStats(liveStats);
+      }
+
       setState(() {
-        _stats = results[0] as Map<String, dynamic>;
-        _userName = (results[1] as String?) ?? '';
-        _tenantName = (results[2] as String?) ?? '';
-        _leads = results[3]['items'];
-        _offers = results[4]['items'];
-        _stock = results[5]['items'];
+        _stats = resolvedStats;
+        _summary = resolvedSummary;
+        _generatedAt = generatedAt;
+        _userName = (results[2] as String?) ?? '';
+        _tenantName = (results[3] as String?) ?? '';
+        _leads = results[4]['items'];
+        _offers = results[5]['items'];
+        _stock = results[6]['items'];
         _isLoading = false;
       });
     } catch (e) {
@@ -77,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text(
-            "SMC CRM",
+            "Sell My Car Today",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           elevation: 0,
@@ -115,6 +133,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         const SizedBox(height: 14),
+                        if (_generatedAt != null) ...[
+                          Text(
+                            "Updated ${_formatGeneratedAt(_generatedAt!)}",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
@@ -159,9 +188,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _buildSummaryStrip(
-                            "Recent Lists",
-                            "${_leads.length + _offers.length + _stock.length}",
-                            Icons.insights_outlined,
+                            "Visible Stock",
+                            _summaryValue('stock', 'visibleInApiVehicles'),
+                            Icons.public_outlined,
                             Colors.black,
                           ),
                         ),
@@ -208,7 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _tenantName.isEmpty ? "SMC CRM" : _tenantName,
+            _tenantName.isEmpty ? "Sell My Car Today" : _tenantName,
             style: const TextStyle(
               color: Colors.black54,
               fontSize: 13,
@@ -314,6 +343,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '0';
     }
     return value.toString();
+  }
+
+  String _summaryValue(String section, String key) {
+    final sectionMap = _summary[section];
+    if (sectionMap is! Map<String, dynamic>) {
+      return '0';
+    }
+    final value = sectionMap[key];
+    return value?.toString() ?? '0';
+  }
+
+  String _formatGeneratedAt(String isoString) {
+    final parsed = DateTime.tryParse(isoString)?.toLocal();
+    if (parsed == null) {
+      return isoString;
+    }
+
+    final hour = parsed.hour == 0
+        ? 12
+        : parsed.hour > 12
+        ? parsed.hour - 12
+        : parsed.hour;
+    final minute = parsed.minute.toString().padLeft(2, '0');
+    final suffix = parsed.hour >= 12 ? 'PM' : 'AM';
+    return "${parsed.day}/${parsed.month}/${parsed.year} $hour:$minute $suffix";
   }
 
   // Updated List Builder using LeadModel

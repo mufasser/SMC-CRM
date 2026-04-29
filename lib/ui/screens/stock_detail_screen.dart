@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
 import 'add_stock_screen.dart';
+import 'stock_gallery_screen.dart';
 import '../widgets/uk_reg_plate.dart';
 
 class StockDetailScreen extends StatefulWidget {
@@ -149,6 +150,26 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => AddStockScreen(initialStock: stock)),
     );
+  }
+
+  Future<void> _openGalleryManager() async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => StockGalleryScreen(
+          stockId: widget.stockId,
+          title: widget.initialStock?.displayTitle ?? _detail?.stock.stockNumber ?? 'Stock',
+          registration:
+              widget.initialStock?.displayRegistration ??
+              _detail?.vehicle.registrationNumber ??
+              _detail?.stock.stockNumber ??
+              'STOCK',
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      _loadDetail();
+    }
   }
 
   @override
@@ -417,13 +438,13 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            SizedBox(
-              height: 92,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _galleryImages.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
+          SizedBox(
+            height: 92,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _galleryImages.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
                 final isActive = index == _activeImageIndex;
                 return GestureDetector(
                   onTap: () {
@@ -454,9 +475,24 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            "${_activeImageIndex + 1} of ${_galleryImages.length} images",
-            style: TextStyle(color: Colors.grey[600]),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "${_activeImageIndex + 1} of ${_galleryImages.length} images",
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _openGalleryManager,
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: const Text('Manage Gallery'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: const Color(0xFFFACC14),
+                ),
+              ),
+            ],
           ),
         ],
       ),

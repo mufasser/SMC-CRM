@@ -106,6 +106,10 @@ class AuthService {
     }
   }
 
+  Future<void> saveDashboardStats(Map<String, dynamic> stats) async {
+    await _storage.write(key: 'dashboard_stats', value: jsonEncode(stats));
+  }
+
   Future<String?> getUserName() async => await _storage.read(key: 'user_name');
 
   Future<String?> getTenantName() async => await _storage.read(key: 'tenant_name');

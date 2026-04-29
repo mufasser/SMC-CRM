@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  "SMC CRM",
+                  "Sell My Car Today",
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
