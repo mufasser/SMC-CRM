@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/models/listing_filters.dart';
 import '../../data/models/lead_model.dart';
 import '../../data/services/crm_service.dart';
 import 'lead_detail_screen.dart';
 import '../widgets/car_card.dart';
+import '../widgets/list_filter_sheet.dart';
 
 class LeadsListScreen extends StatefulWidget {
   const LeadsListScreen({super.key});
@@ -26,6 +28,7 @@ class _LeadsListScreenState extends State<LeadsListScreen> {
   int _currentPage = 1;
   final int _pageSize = 10;
   String _searchQuery = '';
+  ListingFilters _filters = ListingFilters.empty;
   String? _errorMessage;
   Timer? _searchDebounce;
 
@@ -69,6 +72,7 @@ class _LeadsListScreenState extends State<LeadsListScreen> {
         page: pageToLoad,
         limit: _pageSize,
         search: _searchQuery,
+        filters: _filters,
       );
 
       final fetchedItems = (result['items'] as List<LeadModel>);
@@ -142,6 +146,22 @@ class _LeadsListScreenState extends State<LeadsListScreen> {
     );
   }
 
+  Future<void> _openFilters() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final result = await showListingFilterSheet(
+      context,
+      initialFilters: _filters,
+      title: 'Lead Filters',
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() => _filters = result);
+    _fetchLeads(isRefresh: true);
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -168,32 +188,40 @@ class _LeadsListScreenState extends State<LeadsListScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {});
-                _onSearchChanged(value);
-              },
-              onSubmitted: (value) {
-                _searchDebounce?.cancel();
-                _searchQuery = value.trim();
-                _fetchLeads(isRefresh: true);
-              },
-              decoration: InputDecoration(
-                hintText: "Search by customer, reg, make, model",
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          _searchQuery = '';
-                          _fetchLeads(isRefresh: true);
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {});
+                      _onSearchChanged(value);
+                    },
+                    onSubmitted: (value) {
+                      _searchDebounce?.cancel();
+                      _searchQuery = value.trim();
+                      _fetchLeads(isRefresh: true);
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Search by customer, reg, make, model",
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _fetchLeads(isRefresh: true);
+                                setState(() {});
+                              },
+                              icon: const Icon(Icons.close),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _buildFilterButton(),
+              ],
             ),
           ),
           Expanded(
@@ -311,6 +339,49 @@ class _LeadsListScreenState extends State<LeadsListScreen> {
             style: const TextStyle(color: Colors.grey),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildFilterButton() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          onPressed: _openFilters,
+          icon: Icon(
+            Icons.tune_rounded,
+            color: _filters.hasActiveFilters ? Colors.black : Colors.black87,
+          ),
+          style: IconButton.styleFrom(
+            backgroundColor: _filters.hasActiveFilters
+                ? const Color(0xFFFACC14)
+                : Colors.grey[100],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        if (_filters.activeFilterCount > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                _filters.activeFilterCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

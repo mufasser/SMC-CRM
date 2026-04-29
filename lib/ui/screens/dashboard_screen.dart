@@ -174,9 +174,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     unselectedLabelColor: Colors.grey,
                     indicatorColor: brandYellow,
                     tabs: [
-                      Tab(text: "Recent Leads"),
-                      Tab(text: "Recent Offers"),
-                      Tab(text: "Recent Stock"),
+                      Tab(text: "Leads"),
+                      Tab(text: "Offers"),
+                      Tab(text: "Stock"),
                     ],
                   ),
 
@@ -333,9 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             lead: item,
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => LeadDetailScreen(lead: item),
-                ),
+                MaterialPageRoute(builder: (_) => LeadDetailScreen(lead: item)),
               );
             },
           );

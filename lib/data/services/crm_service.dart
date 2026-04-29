@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../core/config/config_manager.dart';
+import '../../core/models/listing_filters.dart';
 import '../models/lead_model.dart';
 import '../models/offer_model.dart';
 import '../models/stock_model.dart';
@@ -16,14 +17,16 @@ class CRMService {
     int page = 1,
     int limit = 10,
     String search = "",
+    ListingFilters filters = ListingFilters.empty,
   }) async {
     try {
       final token = await _auth.getToken();
-      final queryParameters = <String, dynamic>{"page": page, "limit": limit};
-
-      if (search.trim().isNotEmpty) {
-        queryParameters["search"] = search.trim();
-      }
+      final queryParameters = _buildQueryParameters(
+        page: page,
+        limit: limit,
+        search: search,
+        filters: filters,
+      );
 
       final response = await _dio.get(
         endpoint,
@@ -74,14 +77,16 @@ class CRMService {
     int page = 1,
     int limit = 10,
     String search = "",
+    ListingFilters filters = ListingFilters.empty,
   }) async {
     try {
       final token = await _auth.getToken();
-      final queryParameters = <String, dynamic>{"page": page, "limit": limit};
-
-      if (search.trim().isNotEmpty) {
-        queryParameters["search"] = search.trim();
-      }
+      final queryParameters = _buildQueryParameters(
+        page: page,
+        limit: limit,
+        search: search,
+        filters: filters,
+      );
 
       final response = await _dio.get(
         '/offers',
@@ -133,14 +138,16 @@ class CRMService {
     int page = 1,
     int limit = 10,
     String search = "",
+    ListingFilters filters = ListingFilters.empty,
   }) async {
     try {
       final token = await _auth.getToken();
-      final queryParameters = <String, dynamic>{"page": page, "limit": limit};
-
-      if (search.trim().isNotEmpty) {
-        queryParameters["search"] = search.trim();
-      }
+      final queryParameters = _buildQueryParameters(
+        page: page,
+        limit: limit,
+        search: search,
+        filters: filters,
+      );
 
       final response = await _dio.get(
         '/stock',
@@ -255,5 +262,44 @@ class CRMService {
         'message': 'Unable to create stock right now.',
       };
     }
+  }
+
+  Map<String, dynamic> _buildQueryParameters({
+    required int page,
+    required int limit,
+    required String search,
+    required ListingFilters filters,
+  }) {
+    final queryParameters = <String, dynamic>{"page": page, "limit": limit};
+
+    if (search.trim().isNotEmpty) {
+      queryParameters["search"] = search.trim();
+    }
+    if (filters.dateFrom != null) {
+      queryParameters["dateFrom"] = _formatDate(filters.dateFrom!);
+    }
+    if (filters.dateTo != null) {
+      queryParameters["dateTo"] = _formatDate(filters.dateTo!);
+    }
+    if (filters.mileageMin != null) {
+      queryParameters["mileageMin"] = filters.mileageMin;
+    }
+    if (filters.mileageMax != null) {
+      queryParameters["mileageMax"] = filters.mileageMax;
+    }
+    if (filters.priceMin != null) {
+      queryParameters["priceMin"] = filters.priceMin;
+    }
+    if (filters.priceMax != null) {
+      queryParameters["priceMax"] = filters.priceMax;
+    }
+
+    return queryParameters;
+  }
+
+  String _formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return "${date.year}-$month-$day";
   }
 }

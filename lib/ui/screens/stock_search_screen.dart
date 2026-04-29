@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/models/listing_filters.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
 import 'add_stock_screen.dart';
 import '../widgets/stock_card.dart';
 import 'stock_detail_screen.dart';
+import '../widgets/list_filter_sheet.dart';
 
 class StockSearchScreen extends StatefulWidget {
   const StockSearchScreen({super.key});
@@ -27,6 +29,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
   int _currentPage = 1;
   final int _pageSize = 10;
   String _searchQuery = '';
+  ListingFilters _filters = ListingFilters.empty;
   String? _errorMessage;
   Timer? _searchDebounce;
 
@@ -69,6 +72,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
         page: pageToLoad,
         limit: _pageSize,
         search: _searchQuery,
+        filters: _filters,
       );
 
       final fetchedItems = result['items'] as List<StockModel>;
@@ -146,6 +150,22 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     );
   }
 
+  Future<void> _openFilters() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final result = await showListingFilterSheet(
+      context,
+      initialFilters: _filters,
+      title: 'Stock Filters',
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() => _filters = result);
+    _fetchStock(isRefresh: true);
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -172,32 +192,40 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {});
-                _onSearchChanged(value);
-              },
-              onSubmitted: (value) {
-                _searchDebounce?.cancel();
-                _searchQuery = value.trim();
-                _fetchStock(isRefresh: true);
-              },
-              decoration: InputDecoration(
-                hintText: "Search by reg, make, model, customer",
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          _searchQuery = '';
-                          _fetchStock(isRefresh: true);
-                          setState(() {});
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {});
+                      _onSearchChanged(value);
+                    },
+                    onSubmitted: (value) {
+                      _searchDebounce?.cancel();
+                      _searchQuery = value.trim();
+                      _fetchStock(isRefresh: true);
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Search by reg, make, model, customer",
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _fetchStock(isRefresh: true);
+                                setState(() {});
+                              },
+                              icon: const Icon(Icons.close),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _buildFilterButton(),
+              ],
             ),
           ),
           Expanded(
@@ -326,6 +354,46 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
             style: const TextStyle(color: Colors.grey),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildFilterButton() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          onPressed: _openFilters,
+          icon: const Icon(Icons.tune_rounded),
+          style: IconButton.styleFrom(
+            backgroundColor: _filters.hasActiveFilters
+                ? const Color(0xFFFACC14)
+                : Colors.grey[100],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        if (_filters.activeFilterCount > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                _filters.activeFilterCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
