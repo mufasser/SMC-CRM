@@ -7,12 +7,14 @@ class InventoryCard extends StatelessWidget {
   final StockModel stock;
   final VoidCallback? onTap;
   final VoidCallback? onManageGallery;
+  final VoidCallback? onManageExpenses;
 
   const InventoryCard({
     super.key,
     required this.stock,
     this.onTap,
     this.onManageGallery,
+    this.onManageExpenses,
   });
 
   @override
@@ -164,35 +166,57 @@ class InventoryCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (onManageGallery != null) ...[
+            if (onManageGallery != null || onManageExpenses != null) ...[
               Divider(height: 1, color: Colors.grey[200]),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onTap,
-                        icon: const Icon(Icons.visibility_outlined, size: 18),
-                        label: const Text('View Details'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: brandBlack,
-                          side: BorderSide(color: Colors.grey.shade300),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: onTap,
+                            icon: const Icon(Icons.visibility_outlined, size: 18),
+                            label: const Text('View Details'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: brandBlack,
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: onManageGallery,
+                            icon: const Icon(Icons.photo_library_outlined, size: 18),
+                            label: const Text('Manage Gallery'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: brandBlack,
+                              foregroundColor: brandYellow,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (onManageExpenses != null) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: onManageExpenses,
+                          icon: const Icon(
+                            Icons.shopping_cart_checkout_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Manage Expenses'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: brandYellow,
+                            foregroundColor: brandBlack,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: onManageGallery,
-                        icon: const Icon(Icons.photo_library_outlined, size: 18),
-                        label: const Text('Manage Gallery'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: brandBlack,
-                          foregroundColor: brandYellow,
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),

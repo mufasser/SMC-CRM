@@ -5,6 +5,7 @@ import '../../core/models/listing_filters.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
 import 'add_stock_screen.dart';
+import 'stock_expenses_screen.dart';
 import 'stock_gallery_screen.dart';
 import '../widgets/stock_card.dart';
 import 'stock_detail_screen.dart';
@@ -168,6 +169,19 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     }
   }
 
+  Future<void> _openExpensesManager(StockModel stock) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StockExpensesScreen(
+          stockId: stock.id,
+          title: stock.displayTitle,
+          registration: stock.displayRegistration,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFilters() async {
     FocusManager.instance.primaryFocus?.unfocus();
     final result = await showListingFilterSheet(
@@ -270,6 +284,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                             stock: _stock[index],
                             onTap: () => _openStockDetail(_stock[index]),
                             onManageGallery: () => _openGalleryManager(_stock[index]),
+                            onManageExpenses: () => _openExpensesManager(_stock[index]),
                           );
                         }
 

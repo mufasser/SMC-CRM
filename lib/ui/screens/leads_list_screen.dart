@@ -139,11 +139,22 @@ class _LeadsListScreenState extends State<LeadsListScreen> {
     });
   }
 
-  void _openLeadDetail(LeadModel lead) {
+  Future<void> _openLeadDetail(LeadModel lead) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    Navigator.of(context).push(
+    final updatedLead = await Navigator.of(context).push<LeadModel>(
       MaterialPageRoute(builder: (_) => LeadDetailScreen(lead: lead)),
     );
+
+    if (updatedLead == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      final index = _allLeads.indexWhere((item) => item.id == updatedLead.id);
+      if (index >= 0) {
+        _allLeads[index] = updatedLead;
+      }
+    });
   }
 
   Future<void> _openFilters() async {

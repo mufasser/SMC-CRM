@@ -35,6 +35,46 @@ class LeadModel {
     this.valuationCurrency,
   });
 
+  LeadModel copyWith({
+    String? id,
+    String? sourceType,
+    String? sourceName,
+    String? pipelineStatus,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? enquiryTime,
+    String? preferredContactMethod,
+    String? bestTimeToContact,
+    String? extraNote,
+    bool? isOfferRequested,
+    bool? isPublishedToInventory,
+    VehicleDetails? vehicle,
+    CustomerDetails? customer,
+    String? valuationAmount,
+    String? valuationCurrency,
+  }) {
+    return LeadModel(
+      id: id ?? this.id,
+      sourceType: sourceType ?? this.sourceType,
+      sourceName: sourceName ?? this.sourceName,
+      pipelineStatus: pipelineStatus ?? this.pipelineStatus,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      enquiryTime: enquiryTime ?? this.enquiryTime,
+      preferredContactMethod:
+          preferredContactMethod ?? this.preferredContactMethod,
+      bestTimeToContact: bestTimeToContact ?? this.bestTimeToContact,
+      extraNote: extraNote ?? this.extraNote,
+      isOfferRequested: isOfferRequested ?? this.isOfferRequested,
+      isPublishedToInventory:
+          isPublishedToInventory ?? this.isPublishedToInventory,
+      vehicle: vehicle ?? this.vehicle,
+      customer: customer ?? this.customer,
+      valuationAmount: valuationAmount ?? this.valuationAmount,
+      valuationCurrency: valuationCurrency ?? this.valuationCurrency,
+    );
+  }
+
   factory LeadModel.fromJson(Map<String, dynamic> json) {
     final valuations = (json['valuations'] as List?) ?? const [];
     final firstValuation = valuations.isNotEmpty
@@ -66,6 +106,26 @@ class LeadModel {
       valuationCurrency: firstValuation == null
           ? null
           : _nullableString(firstValuation['currency']),
+    );
+  }
+}
+
+class LeadStatusOption {
+  final String value;
+  final String label;
+  final int order;
+
+  const LeadStatusOption({
+    required this.value,
+    required this.label,
+    required this.order,
+  });
+
+  factory LeadStatusOption.fromJson(Map<String, dynamic> json) {
+    return LeadStatusOption(
+      value: _stringValue(json['value']),
+      label: _stringValue(json['label'], fallback: 'Unknown'),
+      order: _nullableInt(json['order']) ?? 0,
     );
   }
 }

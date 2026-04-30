@@ -1,247 +1,363 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../data/models/lead_model.dart';
+import '../../data/services/crm_service.dart';
 import '../widgets/uk_reg_plate.dart';
 
-class LeadDetailScreen extends StatelessWidget {
+class LeadDetailScreen extends StatefulWidget {
   final LeadModel lead;
 
   const LeadDetailScreen({super.key, required this.lead});
 
   @override
+  State<LeadDetailScreen> createState() => _LeadDetailScreenState();
+}
+
+class _LeadDetailScreenState extends State<LeadDetailScreen> {
+  final CRMService _crmService = CRMService();
+
+  late LeadModel _lead;
+  List<LeadStatusOption> _statusOptions = [];
+  bool _isLoadingStatuses = true;
+  bool _isUpdatingStatus = false;
+  bool _didUpdateLead = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lead = widget.lead;
+    _loadStatusOptions();
+  }
+
+  Future<void> _loadStatusOptions() async {
+    final options = await _crmService.fetchLeadStatusOptions();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusOptions = options;
+      _isLoadingStatuses = false;
+    });
+  }
+
+  Future<void> _openStatusSheet() async {
+    if (_isLoadingStatuses || _statusOptions.isEmpty || _isUpdatingStatus) {
+      return;
+    }
+
+    final selected = await showModalBottomSheet<LeadStatusOption>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _LeadStatusSheet(
+        currentStatus: _lead.pipelineStatus,
+        options: _statusOptions,
+      ),
+    );
+
+    if (selected == null || selected.value == _lead.pipelineStatus) {
+      return;
+    }
+
+    setState(() => _isUpdatingStatus = true);
+
+    final response = await _crmService.updateLeadStatus(
+      leadId: _lead.id,
+      pipelineStatus: selected.value,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isUpdatingStatus = false);
+
+    if (response['success'] == true) {
+      setState(() {
+        _lead = _lead.copyWith(
+          pipelineStatus:
+              response['pipelineStatus']?.toString() ?? selected.value,
+          updatedAt: DateTime.tryParse(response['updatedAt']?.toString() ?? ''),
+        );
+        _didUpdateLead = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['message']?.toString() ?? 'Lead status updated successfully.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response['message']?.toString() ?? 'Unable to update lead status.',
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     const brandYellow = Color(0xFFFACC14);
     final vehicleTitle = [
-      if (lead.vehicle.registrationYear != null)
-        lead.vehicle.registrationYear.toString(),
-      lead.vehicle.make,
-      lead.vehicle.model,
+      if (_lead.vehicle.registrationYear != null)
+        _lead.vehicle.registrationYear.toString(),
+      _lead.vehicle.make,
+      _lead.vehicle.model,
     ].join(' ');
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 280,
-            pinned: true,
-            backgroundColor: brandYellow,
-            foregroundColor: Colors.black,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    lead.vehicle.imageUrl ?? 'https://via.placeholder.com/600',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.directions_car_filled,
-                        size: 64,
-                        color: Colors.grey,
+    return PopScope<LeadModel?>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        Navigator.pop(context, _didUpdateLead ? _lead : null);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 280,
+              pinned: true,
+              backgroundColor: brandYellow,
+              foregroundColor: Colors.black,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      _lead.vehicle.imageUrl ?? 'https://via.placeholder.com/600',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          Icons.directions_car_filled,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.08),
-                          Colors.black.withValues(alpha: 0.45),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.08),
+                            Colors.black.withValues(alpha: 0.45),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 20,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          UkRegPlate(reg: _lead.vehicle.registrationNumber),
+                          const SizedBox(height: 12),
+                          Text(
+                            vehicleTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "${_lead.vehicle.mileage} miles",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        UkRegPlate(reg: lead.vehicle.registrationNumber),
-                        const SizedBox(height: 12),
-                        Text(
-                          vehicleTitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "${lead.vehicle.mileage} miles",
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _InfoChip(
-                        label: 'Status',
-                        value: lead.pipelineStatus.replaceAll('_', ' '),
-                        backgroundColor: brandYellow.withValues(alpha: 0.2),
-                      ),
-                      _InfoChip(
-                        label: 'Valuation',
-                        value:
-                            "${lead.valuationCurrency ?? '£'} ${lead.valuationAmount ?? '0'}",
-                      ),
-                      _InfoChip(
-                        label: 'Source',
-                        value: lead.sourceName.isEmpty
-                            ? lead.sourceType
-                            : lead.sourceName,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _DetailSection(
-                    title: 'Customer',
-                    child: Column(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        _detailRow('Name', lead.customer.fullName),
-                        _detailRow('Phone', lead.customer.phoneNumber),
-                        _detailRow(
-                          'WhatsApp',
-                          lead.customer.whatsappNumber ?? 'Not available',
+                        _InfoChip(
+                          label: 'Valuation',
+                          value:
+                              "${_lead.valuationCurrency ?? '£'} ${_lead.valuationAmount ?? '0'}",
                         ),
-                        _detailRow(
-                          'Email',
-                          lead.customer.email ?? 'Not available',
+                        _InfoChip(
+                          label: 'Source',
+                          value: _lead.sourceName.isEmpty
+                              ? _lead.sourceType
+                              : _lead.sourceName,
                         ),
-                        _detailRow(
-                          'Postcode',
-                          lead.customer.postcode ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Preferred Contact',
-                          lead.preferredContactMethod ?? 'Not set',
-                        ),
-                        _detailRow(
-                          'Best Time',
-                          lead.bestTimeToContact ?? 'Not set',
+                        _InfoChip(
+                          label: 'Contact',
+                          value:
+                              _lead.preferredContactMethod?.replaceAll('_', ' ') ??
+                              'Not set',
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  _DetailSection(
-                    title: 'Vehicle',
-                    child: Column(
-                      children: [
-                        _detailRow(
-                          'Registration',
-                          lead.vehicle.registrationNumber,
-                        ),
-                        _detailRow('Make', lead.vehicle.make),
-                        _detailRow('Model', lead.vehicle.model),
-                        _detailRow(
-                          'Variant',
-                          lead.vehicle.variant ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Year',
-                          lead.vehicle.registrationYear?.toString() ??
-                              'Not available',
-                        ),
-                        _detailRow('Mileage', "${lead.vehicle.mileage} miles"),
-                        _detailRow(
-                          'Colour',
-                          lead.vehicle.colour ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Body Type',
-                          lead.vehicle.bodyType ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Fuel',
-                          lead.vehicle.fuelType ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Transmission',
-                          lead.vehicle.transmission ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Previous Owners',
-                          lead.vehicle.previousOwners?.toString() ??
-                              'Not available',
-                        ),
-                        _detailRow(
-                          'Engine Capacity',
-                          lead.vehicle.engineCapacity ?? 'Not available',
-                        ),
-                      ],
+                    const SizedBox(height: 20),
+                    _StageCard(
+                      lead: _lead,
+                      statusOptions: _statusOptions,
+                      isLoading: _isLoadingStatuses,
+                      isUpdating: _isUpdatingStatus,
+                      onChangeStatus: _openStatusSheet,
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  _DetailSection(
-                    title: 'Lead Info',
-                    child: Column(
-                      children: [
-                        _detailRow(
-                          'Created',
-                          _formatDateTime(lead.createdAt.toLocal()),
-                        ),
-                        _detailRow(
-                          'Enquiry Time',
-                          lead.enquiryTime == null
-                              ? 'Not available'
-                              : _formatDateTime(lead.enquiryTime!.toLocal()),
-                        ),
-                        _detailRow(
-                          'Offer Requested',
-                          lead.isOfferRequested ? 'Yes' : 'No',
-                        ),
-                        _detailRow(
-                          'Published To Inventory',
-                          lead.isPublishedToInventory ? 'Yes' : 'No',
-                        ),
-                      ],
-                    ),
-                  ),
-                  if ((lead.extraNote ?? '').isNotEmpty) ...[
                     const SizedBox(height: 20),
                     _DetailSection(
-                      title: 'Notes',
-                      child: Text(
-                        lead.extraNote!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                          color: Colors.black87,
-                        ),
+                      title: 'Customer',
+                      child: Column(
+                        children: [
+                          _detailRow('Name', _lead.customer.fullName),
+                          _detailRow('Phone', _lead.customer.phoneNumber),
+                          _detailRow(
+                            'WhatsApp',
+                            _lead.customer.whatsappNumber ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Email',
+                            _lead.customer.email ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Postcode',
+                            _lead.customer.postcode ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Best Time',
+                            _lead.bestTimeToContact ?? 'Not set',
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    _DetailSection(
+                      title: 'Vehicle',
+                      child: Column(
+                        children: [
+                          _detailRow(
+                            'Registration',
+                            _lead.vehicle.registrationNumber,
+                          ),
+                          _detailRow('Make', _lead.vehicle.make),
+                          _detailRow('Model', _lead.vehicle.model),
+                          _detailRow(
+                            'Variant',
+                            _lead.vehicle.variant ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Year',
+                            _lead.vehicle.registrationYear?.toString() ??
+                                'Not available',
+                          ),
+                          _detailRow('Mileage', "${_lead.vehicle.mileage} miles"),
+                          _detailRow(
+                            'Colour',
+                            _lead.vehicle.colour ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Body Type',
+                            _lead.vehicle.bodyType ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Fuel',
+                            _lead.vehicle.fuelType ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Transmission',
+                            _lead.vehicle.transmission ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Previous Owners',
+                            _lead.vehicle.previousOwners?.toString() ??
+                                'Not available',
+                          ),
+                          _detailRow(
+                            'Engine Capacity',
+                            _lead.vehicle.engineCapacity ?? 'Not available',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _DetailSection(
+                      title: 'Lead Info',
+                      child: Column(
+                        children: [
+                          _detailRow(
+                            'Created',
+                            _formatDateTime(_lead.createdAt.toLocal()),
+                          ),
+                          _detailRow(
+                            'Updated',
+                            _lead.updatedAt == null
+                                ? 'Not available'
+                                : _formatDateTime(_lead.updatedAt!.toLocal()),
+                          ),
+                          _detailRow(
+                            'Enquiry Time',
+                            _lead.enquiryTime == null
+                                ? 'Not available'
+                                : _formatDateTime(_lead.enquiryTime!.toLocal()),
+                          ),
+                          _detailRow(
+                            'Offer Requested',
+                            _lead.isOfferRequested ? 'Yes' : 'No',
+                          ),
+                          _detailRow(
+                            'Published To Inventory',
+                            _lead.isPublishedToInventory ? 'Yes' : 'No',
+                          ),
+                        ],
+                      ),
+                    ),
+                    if ((_lead.extraNote ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      _DetailSection(
+                        title: 'Notes',
+                        child: Text(
+                          _lead.extraNote!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: _ActionBar(lead: _lead),
       ),
-      bottomNavigationBar: _ActionBar(lead: lead),
     );
   }
 
@@ -308,6 +424,337 @@ class LeadDetailScreen extends StatelessWidget {
   }
 }
 
+class _StageCard extends StatelessWidget {
+  final LeadModel lead;
+  final List<LeadStatusOption> statusOptions;
+  final bool isLoading;
+  final bool isUpdating;
+  final VoidCallback onChangeStatus;
+
+  const _StageCard({
+    required this.lead,
+    required this.statusOptions,
+    required this.isLoading,
+    required this.isUpdating,
+    required this.onChangeStatus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = statusOptions.indexWhere(
+      (option) => option.value == lead.pipelineStatus,
+    );
+    final currentLabel = statusOptions
+        .where((option) => option.value == lead.pipelineStatus)
+        .map((option) => option.label)
+        .cast<String?>()
+        .firstWhere(
+          (label) => label != null,
+          orElse: () => _fallbackLabel(lead.pipelineStatus),
+        );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFD84D),
+            Color(0xFFF4BF18),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Pipeline Stage',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Keep this lead moving with one tap stage changes.',
+                      style: TextStyle(
+                        color: Colors.black.withValues(alpha: 0.72),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  currentLabel ?? _fallbackLabel(lead.pipelineStatus),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (isLoading)
+            const SizedBox(
+              height: 60,
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.black),
+              ),
+            )
+          else
+            SizedBox(
+              height: 74,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: statusOptions.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final option = statusOptions[index];
+                  final isCurrent = option.value == lead.pipelineStatus;
+                  final isPassed = currentIndex >= 0 && index < currentIndex;
+
+                  return Container(
+                    width: 128,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? Colors.black
+                          : Colors.white.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isCurrent
+                            ? Colors.black
+                            : isPassed
+                            ? Colors.black.withValues(alpha: 0.2)
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isCurrent
+                              ? Icons.radio_button_checked
+                              : isPassed
+                              ? Icons.check_circle_outline
+                              : Icons.circle_outlined,
+                          size: 18,
+                          color: isCurrent ? const Color(0xFFFACC14) : Colors.black,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          option.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            color: isCurrent ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isLoading || isUpdating ? null : onChangeStatus,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: const Color(0xFFFACC14),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: isUpdating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFFFACC14),
+                      ),
+                    )
+                  : const Icon(Icons.swap_horiz_rounded),
+              label: Text(isUpdating ? 'Updating Stage...' : 'Change Stage'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _fallbackLabel(String value) {
+    return value.replaceAll('_', ' ');
+  }
+}
+
+class _LeadStatusSheet extends StatelessWidget {
+  final String currentStatus;
+  final List<LeadStatusOption> options;
+
+  const _LeadStatusSheet({
+    required this.currentStatus,
+    required this.options,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Change Lead Stage',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Pick the stage that best reflects what is happening with this lead right now.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], height: 1.4),
+              ),
+              const SizedBox(height: 18),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final option = options[index];
+                    final isCurrent = option.value == currentStatus;
+
+                    return Material(
+                      color: isCurrent
+                          ? const Color(0xFFFACC14).withValues(alpha: 0.2)
+                          : const Color(0xFFF8F8F4),
+                      borderRadius: BorderRadius.circular(18),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: isCurrent ? null : () => Navigator.pop(context, option),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: isCurrent
+                                      ? Colors.black
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  isCurrent
+                                      ? Icons.check_rounded
+                                      : Icons.flag_outlined,
+                                  color: isCurrent
+                                      ? const Color(0xFFFACC14)
+                                      : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      option.label,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isCurrent
+                                          ? 'Current stage'
+                                          : 'Move lead into this stage',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isCurrent)
+                                const Icon(
+                                  Icons.radio_button_checked,
+                                  color: Colors.black,
+                                )
+                              else
+                                const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 16,
+                                  color: Colors.black54,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionBar extends StatelessWidget {
   final LeadModel lead;
 
@@ -337,7 +784,7 @@ class _ActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => _launchWhatsApp(context, whatsappPhone),
+                onPressed: () => _launchWhatsApp(context, whatsappPhone, lead),
                 icon: const Icon(Icons.message, color: Colors.white),
                 label: const Text('WhatsApp'),
                 style: ElevatedButton.styleFrom(
@@ -368,7 +815,11 @@ class _ActionBar extends StatelessWidget {
     );
   }
 
-  Future<void> _launchWhatsApp(BuildContext context, String phone) async {
+  static Future<void> _launchWhatsApp(
+    BuildContext context,
+    String phone,
+    LeadModel lead,
+  ) async {
     final cleanPhone = _sanitizePhone(phone);
     final text = Uri.encodeComponent(
       "Regarding your ${lead.vehicle.make} ${lead.vehicle.model}",
@@ -388,7 +839,7 @@ class _ActionBar extends StatelessWidget {
     await _launchUrl(context, webUri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _launchUrl(
+  static Future<void> _launchUrl(
     BuildContext context,
     Uri uri, {
     LaunchMode mode = LaunchMode.platformDefault,
@@ -452,12 +903,10 @@ class _DetailSection extends StatelessWidget {
 class _InfoChip extends StatelessWidget {
   final String label;
   final String value;
-  final Color? backgroundColor;
 
   const _InfoChip({
     required this.label,
     required this.value,
-    this.backgroundColor,
   });
 
   @override
@@ -465,7 +914,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: backgroundColor ?? Colors.grey[100],
+        color: Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

@@ -6,6 +6,7 @@ import '../../core/models/listing_filters.dart';
 import '../models/lead_model.dart';
 import '../models/offer_model.dart';
 import '../models/stock_model.dart';
+import '../models/stock_expense_model.dart';
 import 'auth_service.dart';
 
 class CRMService {
@@ -69,6 +70,65 @@ class CRMService {
         "total": 0,
         "lastPage": 1,
         "hasNextPage": false,
+      };
+    }
+  }
+
+  Future<List<LeadStatusOption>> fetchLeadStatusOptions() async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.get(
+        '/leads/status-options',
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final statuses = (response.data['statuses'] as List?) ?? const [];
+        return statuses
+            .whereType<Map<String, dynamic>>()
+            .map(LeadStatusOption.fromJson)
+            .toList()
+          ..sort((a, b) => a.order.compareTo(b.order));
+      }
+      return const <LeadStatusOption>[];
+    } catch (e) {
+      debugPrint("Lead status options API Error: $e");
+      return const <LeadStatusOption>[];
+    }
+  }
+
+  Future<Map<String, dynamic>> updateLeadStatus({
+    required String leadId,
+    required String pipelineStatus,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.patch(
+        '/leads/$leadId/status',
+        data: {'pipelineStatus': pipelineStatus},
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      final leadPayload =
+          payloadResponse['lead'] as Map<String, dynamic>? ?? const {};
+
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Unable to update lead status.',
+        'pipelineStatus': leadPayload['pipelineStatus']?.toString(),
+        'updatedAt': leadPayload['updatedAt']?.toString(),
+      };
+    } catch (e) {
+      debugPrint("Update lead status API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to update lead status right now.',
       };
     }
   }
@@ -462,6 +522,150 @@ class CRMService {
       return {
         'success': false,
         'message': 'Unable to delete image right now.',
+      };
+    }
+  }
+
+  Future<StockExpenseListData?> fetchStockExpenses(String stockId) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.get(
+        '/stock/$stockId/expenses',
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return StockExpenseListData.fromJson(
+          response.data as Map<String, dynamic>? ?? const {},
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Stock expenses API Error: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> createStockExpense({
+    required String stockId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.post(
+        '/stock/$stockId/expenses',
+        data: payload,
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success':
+            (response.statusCode == 200 || response.statusCode == 201) &&
+            payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ?? 'Unable to create expense.',
+      };
+    } catch (e) {
+      debugPrint("Create stock expense API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to create expense right now.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> createStockExpenses({
+    required String stockId,
+    required List<Map<String, dynamic>> expenses,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.post(
+        '/stock/$stockId/expenses',
+        data: {'expenses': expenses},
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success':
+            (response.statusCode == 200 || response.statusCode == 201) &&
+            payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ?? 'Unable to create expenses.',
+      };
+    } catch (e) {
+      debugPrint("Create multiple stock expenses API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to create expenses right now.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateStockExpense({
+    required String stockId,
+    required String expenseId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.patch(
+        '/stock/$stockId/expenses/$expenseId',
+        data: payload,
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ?? 'Unable to update expense.',
+      };
+    } catch (e) {
+      debugPrint("Update stock expense API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to update expense right now.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteStockExpense({
+    required String stockId,
+    required String expenseId,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.delete(
+        '/stock/$stockId/expenses/$expenseId',
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ?? 'Unable to delete expense.',
+      };
+    } catch (e) {
+      debugPrint("Delete stock expense API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to delete expense right now.',
       };
     }
   }
