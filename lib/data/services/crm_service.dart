@@ -670,6 +670,143 @@ class CRMService {
     }
   }
 
+  Future<StockBroadcastData?> fetchStockBroadcasts(String stockId) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.get(
+        '/stock/$stockId/broadcasts',
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return StockBroadcastData.fromJson(
+          response.data as Map<String, dynamic>? ?? const {},
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Stock broadcasts API Error: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> pushStockToBroadcasters({
+    required String stockId,
+    required List<String> providerKeys,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final payload = providerKeys.length == 1
+          ? {'providerKey': providerKeys.first}
+          : {'providerKeys': providerKeys};
+
+      final response = await _dio.post(
+        '/stock/$stockId/broadcasts',
+        data: payload,
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Unable to broadcast stock right now.',
+        'results': (payloadResponse['results'] as List?) ?? const [],
+      };
+    } catch (e) {
+      debugPrint("Push stock to broadcasters API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to broadcast stock right now.',
+        'results': const [],
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateBroadcastStockStatus({
+    required String stockId,
+    required String stockStatus,
+    required List<String> providerKeys,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.patch(
+        '/stock/$stockId/broadcasts/status',
+        data: {
+          'stockStatus': stockStatus,
+          'providerKeys': providerKeys,
+        },
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      final data = (payloadResponse['data'] as Map<String, dynamic>?) ?? const {};
+
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Unable to update stock status right now.',
+        'stockStatus': data['stockStatus']?.toString(),
+        'broadcasterResults': (data['broadcasterResults'] as List?) ?? const [],
+      };
+    } catch (e) {
+      debugPrint("Update stock broadcast status API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to update stock status right now.',
+        'broadcasterResults': const [],
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateBroadcastStockPrice({
+    required String stockId,
+    required num askPrice,
+    required List<String> providerKeys,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.patch(
+        '/stock/$stockId/broadcasts/price',
+        data: {
+          'askPrice': askPrice,
+          'providerKeys': providerKeys,
+        },
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      final data = (payloadResponse['data'] as Map<String, dynamic>?) ?? const {};
+
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Unable to update stock price right now.',
+        'askPrice': data['askPrice'],
+        'broadcasterResults': (data['broadcasterResults'] as List?) ?? const [],
+      };
+    } catch (e) {
+      debugPrint("Update stock broadcast price API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to update stock price right now.',
+        'broadcasterResults': const [],
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> fetchDashboardStats() async {
     try {
       final token = await _auth.getToken();

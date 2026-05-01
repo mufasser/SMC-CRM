@@ -5,6 +5,7 @@ import '../../core/models/listing_filters.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
 import 'add_stock_screen.dart';
+import 'stock_broadcast_screen.dart';
 import 'stock_expenses_screen.dart';
 import 'stock_gallery_screen.dart';
 import '../widgets/stock_card.dart';
@@ -143,13 +144,17 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     });
   }
 
-  void _openStockDetail(StockModel stock) {
+  Future<void> _openStockDetail(StockModel stock) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    Navigator.of(context).push(
+    final updated = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => StockDetailScreen(stockId: stock.id, initialStock: stock),
       ),
     );
+
+    if (updated == true && mounted) {
+      _fetchStock(isRefresh: true);
+    }
   }
 
   Future<void> _openGalleryManager(StockModel stock) async {
@@ -180,6 +185,23 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openBroadcastManager(StockModel stock) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => StockBroadcastScreen(
+          stockId: stock.id,
+          title: stock.displayTitle,
+          registration: stock.displayRegistration,
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      _fetchStock(isRefresh: true);
+    }
   }
 
   Future<void> _openFilters() async {
@@ -284,6 +306,7 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                             stock: _stock[index],
                             onTap: () => _openStockDetail(_stock[index]),
                             onManageGallery: () => _openGalleryManager(_stock[index]),
+                            onManageBroadcast: () => _openBroadcastManager(_stock[index]),
                             onManageExpenses: () => _openExpensesManager(_stock[index]),
                           );
                         }

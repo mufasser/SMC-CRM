@@ -416,6 +416,196 @@ class StockGalleryData {
   }
 }
 
+class StockBroadcastData {
+  final StockBroadcastVehicle stockVehicle;
+  final List<StockBroadcaster> broadcasters;
+  final List<StockBroadcastLog> logs;
+
+  const StockBroadcastData({
+    required this.stockVehicle,
+    required this.broadcasters,
+    required this.logs,
+  });
+
+  factory StockBroadcastData.fromJson(Map<String, dynamic> json) {
+    final payload = (json['data'] as Map<String, dynamic>?) ?? const {};
+    final broadcasters = (payload['broadcasters'] as List?) ?? const [];
+    final logs = (payload['logs'] as List?) ?? const [];
+
+    return StockBroadcastData(
+      stockVehicle: StockBroadcastVehicle.fromJson(
+        (payload['stockVehicle'] as Map<String, dynamic>?) ?? const {},
+      ),
+      broadcasters: broadcasters
+          .whereType<Map<String, dynamic>>()
+          .map(StockBroadcaster.fromJson)
+          .toList(),
+      logs: logs
+          .whereType<Map<String, dynamic>>()
+          .map(StockBroadcastLog.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class StockBroadcastVehicle {
+  final String id;
+  final String stockStatus;
+  final double? askPrice;
+  final String? make;
+  final String? model;
+  final String? registrationNumber;
+
+  const StockBroadcastVehicle({
+    required this.id,
+    required this.stockStatus,
+    this.askPrice,
+    this.make,
+    this.model,
+    this.registrationNumber,
+  });
+
+  String get displayTitle {
+    final parts = [make, model]
+        .whereType<String>()
+        .where((value) => value.trim().isNotEmpty)
+        .join(' ');
+    return parts.isEmpty ? id : parts;
+  }
+
+  factory StockBroadcastVehicle.fromJson(Map<String, dynamic> json) {
+    return StockBroadcastVehicle(
+      id: _stringValue(json['id']),
+      stockStatus: _stringValue(json['stockStatus'], fallback: 'IN_STOCK'),
+      askPrice: _nullableDouble(json['askPrice']),
+      make: _nullableString(json['make']),
+      model: _nullableString(json['model']),
+      registrationNumber: _nullableString(json['registrationNumber']),
+    );
+  }
+}
+
+class StockBroadcaster {
+  final String key;
+  final String displayName;
+  final String shortName;
+  final String? websiteUrl;
+  final String logoText;
+  final String healthStatus;
+  final String effectiveConnectionMode;
+  final bool isEnabledByDealer;
+  final bool autoSyncEnabled;
+  final StockBroadcasterSyncState? syncState;
+
+  const StockBroadcaster({
+    required this.key,
+    required this.displayName,
+    required this.shortName,
+    required this.logoText,
+    required this.healthStatus,
+    required this.effectiveConnectionMode,
+    required this.isEnabledByDealer,
+    required this.autoSyncEnabled,
+    this.websiteUrl,
+    this.syncState,
+  });
+
+  bool get isReady =>
+      isEnabledByDealer && healthStatus.toUpperCase() == 'READY';
+
+  factory StockBroadcaster.fromJson(Map<String, dynamic> json) {
+    return StockBroadcaster(
+      key: _stringValue(json['key']),
+      displayName: _stringValue(json['displayName']),
+      shortName: _stringValue(
+        json['shortName'],
+        fallback: _stringValue(json['displayName']),
+      ),
+      websiteUrl: _nullableString(json['websiteUrl']),
+      logoText: _stringValue(json['logoText'], fallback: '--'),
+      healthStatus: _stringValue(json['healthStatus'], fallback: 'UNKNOWN'),
+      effectiveConnectionMode: _stringValue(
+        json['effectiveConnectionMode'],
+        fallback: 'UNKNOWN',
+      ),
+      isEnabledByDealer: json['isEnabledByDealer'] == true,
+      autoSyncEnabled: json['autoSyncEnabled'] == true,
+      syncState: json['syncState'] is Map<String, dynamic>
+          ? StockBroadcasterSyncState.fromJson(
+              json['syncState'] as Map<String, dynamic>,
+            )
+          : null,
+    );
+  }
+}
+
+class StockBroadcasterSyncState {
+  final String syncStatus;
+  final bool isPublished;
+  final String? externalListingId;
+  final String? externalReference;
+  final DateTime? publishedAt;
+  final DateTime? lastSyncedAt;
+  final DateTime? lastErrorAt;
+  final String? lastErrorMessage;
+
+  const StockBroadcasterSyncState({
+    required this.syncStatus,
+    required this.isPublished,
+    this.externalListingId,
+    this.externalReference,
+    this.publishedAt,
+    this.lastSyncedAt,
+    this.lastErrorAt,
+    this.lastErrorMessage,
+  });
+
+  factory StockBroadcasterSyncState.fromJson(Map<String, dynamic> json) {
+    return StockBroadcasterSyncState(
+      syncStatus: _stringValue(json['syncStatus'], fallback: 'UNKNOWN'),
+      isPublished: json['isPublished'] == true,
+      externalListingId: _nullableString(json['externalListingId']),
+      externalReference: _nullableString(json['externalReference']),
+      publishedAt: _parseDate(json['publishedAt']),
+      lastSyncedAt: _parseDate(json['lastSyncedAt']),
+      lastErrorAt: _parseDate(json['lastErrorAt']),
+      lastErrorMessage: _nullableString(json['lastErrorMessage']),
+    );
+  }
+}
+
+class StockBroadcastLog {
+  final String id;
+  final String providerKey;
+  final String? requestUrl;
+  final String requestMethod;
+  final int? responseStatus;
+  final String? responseBody;
+  final DateTime? createdAt;
+
+  const StockBroadcastLog({
+    required this.id,
+    required this.providerKey,
+    required this.requestMethod,
+    this.requestUrl,
+    this.responseStatus,
+    this.responseBody,
+    this.createdAt,
+  });
+
+  factory StockBroadcastLog.fromJson(Map<String, dynamic> json) {
+    return StockBroadcastLog(
+      id: _stringValue(json['id']),
+      providerKey: _stringValue(json['providerKey']),
+      requestUrl: _nullableString(json['requestUrl']),
+      requestMethod: _stringValue(json['requestMethod'], fallback: 'POST'),
+      responseStatus: _nullableInt(json['responseStatus']),
+      responseBody: _nullableString(json['responseBody']),
+      createdAt: _parseDate(json['createdAt']),
+    );
+  }
+}
+
 String _stringValue(dynamic value, {String fallback = ''}) {
   final text = value?.toString().trim();
   return (text == null || text.isEmpty) ? fallback : text;

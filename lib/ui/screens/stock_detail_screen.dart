@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/stock_model.dart';
 import '../../data/services/crm_service.dart';
 import 'add_stock_screen.dart';
+import 'stock_broadcast_screen.dart';
 import 'stock_gallery_screen.dart';
 import '../widgets/uk_reg_plate.dart';
 
@@ -23,11 +24,17 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   int _activeImageIndex = 0;
-  String? _localStatusOverride;
+  bool _didUpdateStock = false;
 
-  String get _currentStatus => _localStatusOverride ?? _detail?.stock.stockStatus ?? 'IN_STOCK';
+  String get _currentStatus =>
+      _detail?.stock.stockStatus ??
+      widget.initialStock?.stockStatus ??
+      'IN_STOCK';
 
-  bool get _canEdit => _currentStatus.toUpperCase() != 'SOLD';
+  bool get _canEdit {
+    final status = _currentStatus.toUpperCase();
+    return status != 'SOLD' && status != 'OUT_OF_STOCK';
+  }
 
   @override
   void initState() {
@@ -74,68 +81,28 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     return ['https://via.placeholder.com/900x600?text=No+Image'];
   }
 
-  Future<void> _showChangeStatusSheet() async {
-    final nextStatus = await showModalBottomSheet<String>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Change Status',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Endpoint not shared yet, so this updates the UI state for now.',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 18),
-            ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Mark In Stock'),
-              onTap: () => Navigator.pop(context, 'IN_STOCK'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.sell_outlined),
-              title: const Text('Mark Sold'),
-              onTap: () => Navigator.pop(context, 'SOLD'),
-            ),
-            const SizedBox(height: 16),
-          ],
+  Future<void> _openBroadcastManager() async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => StockBroadcastScreen(
+          stockId: widget.stockId,
+          title:
+              widget.initialStock?.displayTitle ??
+              _detail?.stock.stockNumber ??
+              'Stock',
+          registration:
+              widget.initialStock?.displayRegistration ??
+              _detail?.vehicle.registrationNumber ??
+              _detail?.stock.stockNumber ??
+              'STOCK',
         ),
       ),
     );
 
-    if (nextStatus == null || !mounted) {
-      return;
+    if (updated == true && mounted) {
+      _didUpdateStock = true;
+      _loadDetail();
     }
-
-    setState(() => _localStatusOverride = nextStatus);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Status changed to $nextStatus on this screen.')),
-    );
-  }
-
-  void _handleBroadcast() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Broadcast action is ready in UI. Share the endpoint and I will wire it.'),
-      ),
-    );
   }
 
   Future<void> _handleEdit() async {
@@ -157,6 +124,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     );
 
     if (updated == true && mounted) {
+      _didUpdateStock = true;
       _loadDetail();
     }
   }
@@ -177,6 +145,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     );
 
     if (updated == true && mounted) {
+      _didUpdateStock = true;
       _loadDetail();
     }
   }
@@ -185,13 +154,21 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   Widget build(BuildContext context) {
     const brandYellow = Color(0xFFFACC14);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: brandYellow))
-          : _detail == null
-          ? _buildErrorState()
-          : CustomScrollView(
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        Navigator.pop(context, _didUpdateStock);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: brandYellow))
+            : _detail == null
+            ? _buildErrorState()
+            : CustomScrollView(
               slivers: [
                 _buildAppBar(_detail!),
                 SliverToBoxAdapter(
@@ -303,15 +280,16 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                 ),
               ],
             ),
-      bottomNavigationBar: _detail == null
-          ? null
-          : _StockActionBar(
-              status: _currentStatus,
-              canEdit: _canEdit,
-              onChangeStatus: _showChangeStatusSheet,
-              onBroadcast: _handleBroadcast,
-              onEdit: _handleEdit,
-            ),
+        bottomNavigationBar: _detail == null
+            ? null
+            : _StockActionBar(
+                status: _currentStatus,
+                canEdit: _canEdit,
+                onChangeStatus: _openBroadcastManager,
+                onBroadcast: _openBroadcastManager,
+                onEdit: _handleEdit,
+              ),
+      ),
     );
   }
 
@@ -635,7 +613,11 @@ class _StockActionBar extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onChangeStatus,
                     icon: const Icon(Icons.sync_alt),
-                    label: Text(status == 'SOLD' ? 'Change Status' : 'Mark Sold / In Stock'),
+                    label: Text(
+                      status == 'OUT_OF_STOCK'
+                          ? 'Mark In Stock'
+                          : 'Status Sync',
+                    ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),

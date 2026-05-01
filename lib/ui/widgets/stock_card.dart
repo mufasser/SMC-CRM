@@ -7,6 +7,7 @@ class InventoryCard extends StatelessWidget {
   final StockModel stock;
   final VoidCallback? onTap;
   final VoidCallback? onManageGallery;
+  final VoidCallback? onManageBroadcast;
   final VoidCallback? onManageExpenses;
 
   const InventoryCard({
@@ -14,6 +15,7 @@ class InventoryCard extends StatelessWidget {
     required this.stock,
     this.onTap,
     this.onManageGallery,
+    this.onManageBroadcast,
     this.onManageExpenses,
   });
 
@@ -166,7 +168,9 @@ class InventoryCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (onManageGallery != null || onManageExpenses != null) ...[
+            if (onManageGallery != null ||
+                onManageBroadcast != null ||
+                onManageExpenses != null) ...[
               Divider(height: 1, color: Colors.grey[200]),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -199,22 +203,43 @@ class InventoryCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (onManageExpenses != null) ...[
+                    if (onManageBroadcast != null || onManageExpenses != null) ...[
                       const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: onManageExpenses,
-                          icon: const Icon(
-                            Icons.shopping_cart_checkout_outlined,
-                            size: 18,
-                          ),
-                          label: const Text('Manage Expenses'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: brandYellow,
-                            foregroundColor: brandBlack,
-                          ),
-                        ),
+                      Row(
+                        children: [
+                          if (onManageBroadcast != null)
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: onManageBroadcast,
+                                icon: const Icon(
+                                  Icons.campaign_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Broadcast'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: brandYellow,
+                                  foregroundColor: brandBlack,
+                                ),
+                              ),
+                            ),
+                          if (onManageBroadcast != null && onManageExpenses != null)
+                            const SizedBox(width: 10),
+                          if (onManageExpenses != null)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: onManageExpenses,
+                                icon: const Icon(
+                                  Icons.shopping_cart_checkout_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Expenses'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: brandBlack,
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ],
