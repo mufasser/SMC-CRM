@@ -104,6 +104,15 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     );
   }
 
+  String get _currentStatusLabel {
+    for (final option in _statusOptions) {
+      if (option.value == _lead.pipelineStatus) {
+        return option.label;
+      }
+    }
+    return _fallbackStatusLabel(_lead.pipelineStatus);
+  }
+
   @override
   Widget build(BuildContext context) {
     const brandYellow = Color(0xFFFACC14);
@@ -157,6 +166,16 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                             Colors.black.withValues(alpha: 0.45),
                           ],
                         ),
+                      ),
+                    ),
+                    Positioned(
+                      top: MediaQuery.paddingOf(context).top + 14,
+                      right: 16,
+                      child: _LeadStatusOverlayChip(
+                        label: _currentStatusLabel,
+                        isLoading: _isLoadingStatuses,
+                        isUpdating: _isUpdatingStatus,
+                        onTap: _openStatusSheet,
                       ),
                     ),
                     Positioned(
@@ -220,14 +239,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                               'Not set',
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 20),
-                    _StageCard(
-                      lead: _lead,
-                      statusOptions: _statusOptions,
-                      isLoading: _isLoadingStatuses,
-                      isUpdating: _isUpdatingStatus,
-                      onChangeStatus: _openStatusSheet,
                     ),
                     const SizedBox(height: 20),
                     _DetailSection(
@@ -424,199 +435,89 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   }
 }
 
-class _StageCard extends StatelessWidget {
-  final LeadModel lead;
-  final List<LeadStatusOption> statusOptions;
+String _fallbackStatusLabel(String value) {
+  return value
+      .replaceAll('_', ' ')
+      .toLowerCase()
+      .split(' ')
+      .where((word) => word.isNotEmpty)
+      .map((word) => "${word[0].toUpperCase()}${word.substring(1)}")
+      .join(' ');
+}
+
+class _LeadStatusOverlayChip extends StatelessWidget {
+  final String label;
   final bool isLoading;
   final bool isUpdating;
-  final VoidCallback onChangeStatus;
+  final VoidCallback onTap;
 
-  const _StageCard({
-    required this.lead,
-    required this.statusOptions,
+  const _LeadStatusOverlayChip({
+    required this.label,
     required this.isLoading,
     required this.isUpdating,
-    required this.onChangeStatus,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = statusOptions.indexWhere(
-      (option) => option.value == lead.pipelineStatus,
-    );
-    final currentLabel = statusOptions
-        .where((option) => option.value == lead.pipelineStatus)
-        .map((option) => option.label)
-        .cast<String?>()
-        .firstWhere(
-          (label) => label != null,
-          orElse: () => _fallbackLabel(lead.pipelineStatus),
-        );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFD84D),
-            Color(0xFFF4BF18),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: isLoading || isUpdating ? null : onTap,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: const Color(0xFFFACC14).withValues(alpha: 0.9),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Pipeline Stage',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Keep this lead moving with one tap stage changes.',
-                      style: TextStyle(
-                        color: Colors.black.withValues(alpha: 0.72),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
+              if (isUpdating)
+                const SizedBox(
+                  width: 15,
+                  height: 15,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFFACC14),
+                  ),
+                )
+              else ...[
+                const Icon(
+                  Icons.local_offer_outlined,
+                  size: 16,
+                  color: Color(0xFFFACC14),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(999),
-                ),
+                const SizedBox(width: 8),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
                 child: Text(
-                  currentLabel ?? _fallbackLabel(lead.pipelineStatus),
+                  isLoading ? 'Loading...' : label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
             ],
           ),
-          const SizedBox(height: 18),
-          if (isLoading)
-            const SizedBox(
-              height: 60,
-              child: Center(
-                child: CircularProgressIndicator(color: Colors.black),
-              ),
-            )
-          else
-            SizedBox(
-              height: 74,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: statusOptions.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final option = statusOptions[index];
-                  final isCurrent = option.value == lead.pipelineStatus;
-                  final isPassed = currentIndex >= 0 && index < currentIndex;
-
-                  return Container(
-                    width: 128,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isCurrent
-                          ? Colors.black
-                          : Colors.white.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: isCurrent
-                            ? Colors.black
-                            : isPassed
-                            ? Colors.black.withValues(alpha: 0.2)
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          isCurrent
-                              ? Icons.radio_button_checked
-                              : isPassed
-                              ? Icons.check_circle_outline
-                              : Icons.circle_outlined,
-                          size: 18,
-                          color: isCurrent ? const Color(0xFFFACC14) : Colors.black,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          option.label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            color: isCurrent ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: isLoading || isUpdating ? null : onChangeStatus,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: const Color(0xFFFACC14),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              icon: isUpdating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFFFACC14),
-                      ),
-                    )
-                  : const Icon(Icons.swap_horiz_rounded),
-              label: Text(isUpdating ? 'Updating Stage...' : 'Change Stage'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
-  }
-
-  static String _fallbackLabel(String value) {
-    return value.replaceAll('_', ' ');
   }
 }
 
