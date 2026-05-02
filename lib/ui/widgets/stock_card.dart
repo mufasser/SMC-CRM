@@ -6,17 +6,13 @@ import 'uk_reg_plate.dart';
 class InventoryCard extends StatelessWidget {
   final StockModel stock;
   final VoidCallback? onTap;
-  final VoidCallback? onManageGallery;
-  final VoidCallback? onManageBroadcast;
-  final VoidCallback? onManageExpenses;
+  final VoidCallback? onShowOptions;
 
   const InventoryCard({
     super.key,
     required this.stock,
     this.onTap,
-    this.onManageGallery,
-    this.onManageBroadcast,
-    this.onManageExpenses,
+    this.onShowOptions,
   });
 
   @override
@@ -58,27 +54,8 @@ class InventoryCard extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        stock.images.isNotEmpty
-                            ? stock.images.first
-                            : 'https://via.placeholder.com/80',
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.inventory_2_outlined,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
+                    _StockThumb(imageUrl: stock.primaryImageUrl),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,7 +90,7 @@ class InventoryCard extends StatelessWidget {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             stock.stockNumber,
                             maxLines: 1,
@@ -133,6 +110,17 @@ class InventoryCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
+                        IconButton(
+                          onPressed: onShowOptions,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.grey[100],
+                            minimumSize: const Size(36, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.all(8),
+                          ),
+                          icon: const Icon(Icons.more_horiz_rounded),
+                        ),
+                        const SizedBox(height: 6),
                         Text(
                           stock.askPrice == null
                               ? "${stock.currencyCode} --"
@@ -168,85 +156,50 @@ class InventoryCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (onManageGallery != null ||
-                onManageBroadcast != null ||
-                onManageExpenses != null) ...[
-              Divider(height: 1, color: Colors.grey[200]),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: onTap,
-                            icon: const Icon(Icons.visibility_outlined, size: 18),
-                            label: const Text('View Details'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: brandBlack,
-                              side: BorderSide(color: Colors.grey.shade300),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: onManageGallery,
-                            icon: const Icon(Icons.photo_library_outlined, size: 18),
-                            label: const Text('Manage Gallery'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: brandBlack,
-                              foregroundColor: brandYellow,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (onManageBroadcast != null || onManageExpenses != null) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          if (onManageBroadcast != null)
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: onManageBroadcast,
-                                icon: const Icon(
-                                  Icons.campaign_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text('Broadcast'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: brandYellow,
-                                  foregroundColor: brandBlack,
-                                ),
-                              ),
-                            ),
-                          if (onManageBroadcast != null && onManageExpenses != null)
-                            const SizedBox(width: 10),
-                          if (onManageExpenses != null)
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: onManageExpenses,
-                                icon: const Icon(
-                                  Icons.shopping_cart_checkout_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text('Expenses'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: brandBlack,
-                                  side: BorderSide(color: Colors.grey.shade300),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StockThumb extends StatelessWidget {
+  final String? imageUrl;
+
+  const _StockThumb({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.trim().isEmpty) {
+      return Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.inventory_2_outlined,
+          color: Colors.grey,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        imageUrl!,
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: 72,
+          height: 72,
+          color: Colors.grey[200],
+          child: const Icon(
+            Icons.inventory_2_outlined,
+            color: Colors.grey,
+          ),
         ),
       ),
     );

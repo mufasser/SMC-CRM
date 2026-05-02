@@ -194,6 +194,42 @@ class CRMService {
     }
   }
 
+  Future<Map<String, dynamic>> moveOfferToStock({
+    required String offerId,
+  }) async {
+    try {
+      final token = await _auth.getToken();
+      final response = await _dio.post(
+        '/offers/$offerId/move-to-stock',
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          headers: {"Authorization": "Bearer $token"},
+        ),
+      );
+
+      final payloadResponse = response.data as Map<String, dynamic>? ?? const {};
+      final data = (payloadResponse['data'] as Map<String, dynamic>?) ?? const {};
+
+      return {
+        'success': response.statusCode == 200 && payloadResponse['success'] == true,
+        'message':
+            payloadResponse['message']?.toString() ??
+            'Unable to move offer to stock right now.',
+        'offerId': data['offerId']?.toString(),
+        'leadId': data['leadId']?.toString(),
+        'leadStatus': data['leadStatus']?.toString(),
+        'stockVehicleId': data['stockVehicleId']?.toString(),
+        'stockCreated': data['stockCreated'] == true,
+      };
+    } catch (e) {
+      debugPrint("Move offer to stock API Error: $e");
+      return {
+        'success': false,
+        'message': 'Unable to move offer to stock right now.',
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> fetchStock({
     int page = 1,
     int limit = 10,

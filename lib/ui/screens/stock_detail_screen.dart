@@ -71,14 +71,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   }
 
   List<String> get _galleryImages {
-    final images = _detail?.images ?? const <String>[];
-    if (_detail?.featuredImage != null && _detail!.featuredImage!.isNotEmpty) {
-      return [_detail!.featuredImage!, ...images.where((e) => e != _detail!.featuredImage!)];
-    }
-    if (images.isNotEmpty) {
-      return images;
-    }
-    return ['https://via.placeholder.com/900x600?text=No+Image'];
+    return _detail?.galleryImages ?? const <String>[];
   }
 
   Future<void> _openBroadcastManager() async {
@@ -311,23 +304,35 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            PageView.builder(
-              controller: _galleryController,
-              onPageChanged: (index) => setState(() => _activeImageIndex = index),
-              itemCount: _galleryImages.length,
-              itemBuilder: (context, index) => Image.network(
-                _galleryImages[index],
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey[200],
-                  child: const Icon(
+            if (_galleryImages.isNotEmpty)
+              PageView.builder(
+                controller: _galleryController,
+                onPageChanged: (index) => setState(() => _activeImageIndex = index),
+                itemCount: _galleryImages.length,
+                itemBuilder: (context, index) => Image.network(
+                  _galleryImages[index],
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[200],
+                    child: const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 64,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Icon(
                     Icons.inventory_2_outlined,
                     size: 64,
                     color: Colors.grey,
                   ),
                 ),
               ),
-            ),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -425,48 +430,69 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 92,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _galleryImages.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final isActive = index == _activeImageIndex;
-                return GestureDetector(
-                  onTap: () {
-                    _galleryController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                  child: Container(
-                    width: 92,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isActive
-                            ? const Color(0xFFFACC14)
-                            : Colors.grey.shade200,
-                        width: isActive ? 2 : 1,
-                      ),
-                      image: DecorationImage(
-                        image: NetworkImage(_galleryImages[index]),
-                        fit: BoxFit.cover,
+          if (_galleryImages.isEmpty)
+            Container(
+              height: 92,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'No gallery images yet',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 92,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _galleryImages.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final isActive = index == _activeImageIndex;
+                  return GestureDetector(
+                    onTap: () {
+                      _galleryController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 240),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                    child: Container(
+                      width: 92,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isActive
+                              ? const Color(0xFFFACC14)
+                              : Colors.grey.shade200,
+                          width: isActive ? 2 : 1,
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(_galleryImages[index]),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: Text(
-                  "${_activeImageIndex + 1} of ${_galleryImages.length} images",
+                  _galleryImages.isEmpty
+                      ? '0 images'
+                      : "${_activeImageIndex + 1} of ${_galleryImages.length} images",
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ),

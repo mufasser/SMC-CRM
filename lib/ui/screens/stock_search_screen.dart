@@ -148,7 +148,8 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
     final updated = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => StockDetailScreen(stockId: stock.id, initialStock: stock),
+        builder: (_) =>
+            StockDetailScreen(stockId: stock.id, initialStock: stock),
       ),
     );
 
@@ -202,6 +203,69 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
     if (updated == true && mounted) {
       _fetchStock(isRefresh: true);
     }
+  }
+
+  Future<void> _openStockOptionsSheet(StockModel stock) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    // await showModalBottomSheet<void>(
+    //   context: context,
+    //   backgroundColor: Colors.transparent,
+    //   builder: (context) => _StockOptionsSheet(
+    //     stock: stock,
+    //     onViewDetails: () {
+    //       Navigator.pop(context);
+    //       _openStockDetail(stock);
+    //     },
+    //     onManageGallery: () {
+    //       Navigator.pop(context);
+    //       _openGalleryManager(stock);
+    //     },
+    //     onBroadcast: () {
+    //       Navigator.pop(context);
+    //       _openBroadcastManager(stock);
+    //     },
+    //     onManageExpenses: () {
+    //       Navigator.pop(context);
+    //       _openExpensesManager(stock);
+    //     },
+    //   ),
+    // );
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 1. Must be true to push up with keyboard
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => Padding(
+        // 2. This pushes the content UP when the keyboard appears
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SafeArea(
+          // 3. Prevents content from hiding behind the system "Home" bar
+          child: _StockOptionsSheet(
+            stock: stock,
+            onViewDetails: () {
+              Navigator.pop(context);
+              _openStockDetail(stock);
+            },
+            onManageGallery: () {
+              Navigator.pop(context);
+              _openGalleryManager(stock);
+            },
+            onBroadcast: () {
+              Navigator.pop(context);
+              _openBroadcastManager(stock);
+            },
+            onManageExpenses: () {
+              Navigator.pop(context);
+              _openExpensesManager(stock);
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openFilters() async {
@@ -299,15 +363,17 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
                       controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: _stock.length + 1 + (_isLoadingMore || _hasMore ? 1 : 0),
+                      itemCount:
+                          _stock.length +
+                          1 +
+                          (_isLoadingMore || _hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index < _stock.length) {
                           return InventoryCard(
                             stock: _stock[index],
                             onTap: () => _openStockDetail(_stock[index]),
-                            onManageGallery: () => _openGalleryManager(_stock[index]),
-                            onManageBroadcast: () => _openBroadcastManager(_stock[index]),
-                            onManageExpenses: () => _openExpensesManager(_stock[index]),
+                            onShowOptions: () =>
+                                _openStockOptionsSheet(_stock[index]),
                           );
                         }
 
@@ -452,6 +518,156 @@ class _StockSearchScreenState extends State<StockSearchScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _StockOptionsSheet extends StatelessWidget {
+  final StockModel stock;
+  final VoidCallback onViewDetails;
+  final VoidCallback onManageGallery;
+  final VoidCallback onBroadcast;
+  final VoidCallback onManageExpenses;
+
+  const _StockOptionsSheet({
+    required this.stock,
+    required this.onViewDetails,
+    required this.onManageGallery,
+    required this.onBroadcast,
+    required this.onManageExpenses,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                stock.displayTitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                stock.displayRegistration,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _OptionTile(
+                icon: Icons.visibility_outlined,
+                title: 'View Details',
+                subtitle: 'Open vehicle information and gallery summary',
+                onTap: onViewDetails,
+              ),
+              const SizedBox(height: 10),
+              _OptionTile(
+                icon: Icons.photo_library_outlined,
+                title: 'Manage Gallery',
+                subtitle: 'Upload, delete, feature, and reorder images',
+                onTap: onManageGallery,
+              ),
+              const SizedBox(height: 10),
+              _OptionTile(
+                icon: Icons.campaign_outlined,
+                title: 'Broadcast',
+                subtitle: 'Push stock live and sync status or price',
+                onTap: onBroadcast,
+              ),
+              const SizedBox(height: 10),
+              _OptionTile(
+                icon: Icons.shopping_cart_checkout_outlined,
+                title: 'Expenses',
+                subtitle: 'Track reconditioning and prep costs',
+                onTap: onManageExpenses,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _OptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF7F7F2),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFACC14).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: Colors.black),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: TextStyle(color: Colors.grey[600])),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

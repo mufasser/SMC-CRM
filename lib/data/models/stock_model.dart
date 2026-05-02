@@ -75,6 +75,8 @@ class StockModel {
         : registrationNumber!;
   }
 
+  String? get primaryImageUrl => images.isNotEmpty ? images.first : null;
+
   factory StockModel.fromJson(Map<String, dynamic> json) {
     final imageList = (json['images'] as List?) ?? const [];
     return StockModel(
@@ -106,15 +108,7 @@ class StockModel {
       customerWhatsapp: _nullableString(json['customerWhatsapp']),
       createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
       updatedAt: _parseDate(json['updatedAt']),
-      images: imageList
-          .map((item) {
-            if (item is Map<String, dynamic>) {
-              return _nullableString(item['url']) ?? '';
-            }
-            return _nullableString(item) ?? '';
-          })
-          .where((item) => item.isNotEmpty)
-          .toList(),
+      images: _extractImageUrls(imageList),
     );
   }
 }
@@ -142,9 +136,21 @@ class StockDetailModel {
     this.featuredImage,
   });
 
-  String get primaryImage =>
-      featuredImage ??
-      (images.isNotEmpty ? images.first : 'https://via.placeholder.com/600');
+  String? get primaryImage => galleryImages.isNotEmpty ? galleryImages.first : null;
+
+  List<String> get galleryImages {
+    final ordered = <String>[];
+    if (featuredImage != null && featuredImage!.trim().isNotEmpty) {
+      ordered.add(featuredImage!.trim());
+    }
+    for (final image in images) {
+      if (image.trim().isEmpty || ordered.contains(image)) {
+        continue;
+      }
+      ordered.add(image);
+    }
+    return ordered;
+  }
 
   factory StockDetailModel.fromJson(Map<String, dynamic> json) {
     final imageList = (json['images'] as List?) ?? const [];
@@ -165,16 +171,8 @@ class StockDetailModel {
       vehicle: StockVehicle.fromJson(
         (json['vehicle'] as Map<String, dynamic>?) ?? const {},
       ),
-      images: imageList
-          .map((item) {
-            if (item is Map<String, dynamic>) {
-              return _nullableString(item['url']) ?? '';
-            }
-            return _nullableString(item) ?? '';
-          })
-          .where((item) => item.isNotEmpty)
-          .toList(),
-      featuredImage: _nullableString(json['featuredImage']),
+      images: _extractImageUrls(imageList),
+      featuredImage: _extractImageUrl(json['featuredImage']),
       summary: StockSummary.fromJson(
         (json['summary'] as Map<String, dynamic>?) ?? const {},
       ),
@@ -647,4 +645,24 @@ DateTime? _parseDate(dynamic value) {
     return null;
   }
   return DateTime.tryParse(value.toString());
+}
+
+List<String> _extractImageUrls(List items) {
+  return items
+      .map(_extractImageUrl)
+      .whereType<String>()
+      .toList();
+}
+
+String? _extractImageUrl(dynamic value) {
+  final dynamic candidate = value is Map<String, dynamic> ? value['url'] : value;
+  final text = _nullableString(candidate);
+  if (text == null) {
+    return null;
+  }
+  final uri = Uri.tryParse(text);
+  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+    return null;
+  }
+  return text;
 }

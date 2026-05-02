@@ -140,11 +140,15 @@ class _AcceptedOffersScreenState extends State<AcceptedOffersScreen> {
     });
   }
 
-  void _openOfferDetail(OfferModel offer) {
+  Future<void> _openOfferDetail(OfferModel offer) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    Navigator.of(context).push(
+    final updated = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => OfferDetailScreen(offer: offer)),
     );
+
+    if (updated == true && mounted) {
+      _fetchOffers(isRefresh: true);
+    }
   }
 
   Future<void> _openFilters() async {

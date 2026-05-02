@@ -63,8 +63,7 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
       return;
     }
 
-    final images = List<StockGalleryImage>.from(gallery.images)
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final images = _normalizeGalleryImages(gallery);
     final featuredImageId = gallery.featuredImageId ?? gallery.featuredImage?.id;
 
     setState(() {
@@ -73,6 +72,48 @@ class _StockGalleryScreenState extends State<StockGalleryScreen> {
       _isLoading = false;
       _hasPendingOrder = false;
     });
+  }
+
+  List<StockGalleryImage> _normalizeGalleryImages(StockGalleryData gallery) {
+    final uniqueImages = <String, StockGalleryImage>{};
+
+    for (final image in gallery.images) {
+      final normalizedUrl = image.url.trim();
+      if (normalizedUrl.isEmpty) {
+        continue;
+      }
+      uniqueImages[image.id] = StockGalleryImage(
+        id: image.id,
+        fileName: image.fileName,
+        originalFileName: image.originalFileName,
+        url: normalizedUrl,
+        mimeType: image.mimeType,
+        fileSize: image.fileSize,
+        isPublic: image.isPublic,
+        sortOrder: image.sortOrder,
+        createdAt: image.createdAt,
+      );
+    }
+
+    final featuredImage = gallery.featuredImage;
+    if (featuredImage != null && featuredImage.url.trim().isNotEmpty) {
+      uniqueImages[featuredImage.id] = StockGalleryImage(
+        id: featuredImage.id,
+        fileName: featuredImage.fileName,
+        originalFileName: featuredImage.originalFileName,
+        url: featuredImage.url.trim(),
+        mimeType: featuredImage.mimeType,
+        fileSize: featuredImage.fileSize,
+        isPublic: featuredImage.isPublic,
+        sortOrder: featuredImage.sortOrder,
+        createdAt: featuredImage.createdAt,
+      );
+    }
+
+    final images = uniqueImages.values.toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+    return images;
   }
 
   Future<void> _showUploadOptions() async {

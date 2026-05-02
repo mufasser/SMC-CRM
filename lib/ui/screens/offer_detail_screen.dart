@@ -1,12 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../data/models/offer_model.dart';
+import '../../data/services/crm_service.dart';
 import '../widgets/uk_reg_plate.dart';
 
-class OfferDetailScreen extends StatelessWidget {
+class OfferDetailScreen extends StatefulWidget {
   final OfferModel offer;
 
   const OfferDetailScreen({super.key, required this.offer});
+
+  @override
+  State<OfferDetailScreen> createState() => _OfferDetailScreenState();
+}
+
+class _OfferDetailScreenState extends State<OfferDetailScreen> {
+  final CRMService _crmService = CRMService();
+
+  bool _isMovingToStock = false;
+  bool _didMoveToStock = false;
+
+  OfferModel get offer => widget.offer;
+
+  Future<void> _moveToStock() async {
+    if (_isMovingToStock) {
+      return;
+    }
+
+    setState(() => _isMovingToStock = true);
+
+    final response = await _crmService.moveOfferToStock(offerId: offer.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isMovingToStock = false);
+
+    final success = response['success'] == true;
+    if (success) {
+      _didMoveToStock = true;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response['message']?.toString() ??
+              (success
+                  ? 'Accepted offer moved to stock successfully.'
+                  : 'Unable to move offer to stock right now.'),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,223 +65,234 @@ class OfferDetailScreen extends StatelessWidget {
       lead.vehicle.model,
     ].join(' ');
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 280,
-            pinned: true,
-            backgroundColor: brandYellow,
-            foregroundColor: Colors.black,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    lead.vehicle.imageUrl ?? 'https://via.placeholder.com/600',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.handshake_outlined,
-                        size: 64,
-                        color: Colors.grey,
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        Navigator.pop(context, _didMoveToStock);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 280,
+              pinned: true,
+              backgroundColor: brandYellow,
+              foregroundColor: Colors.black,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      lead.vehicle.imageUrl ?? 'https://via.placeholder.com/600',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          Icons.handshake_outlined,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.08),
-                          Colors.black.withValues(alpha: 0.45),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.08),
+                            Colors.black.withValues(alpha: 0.45),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 20,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          UkRegPlate(reg: lead.vehicle.registrationNumber),
+                          const SizedBox(height: 12),
+                          Text(
+                            vehicleTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "${lead.customer.fullName} • ${offer.currency} ${offer.amount}",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        UkRegPlate(reg: lead.vehicle.registrationNumber),
-                        const SizedBox(height: 12),
-                        Text(
-                          vehicleTitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "${lead.customer.fullName} • ${offer.currency} ${offer.amount}",
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _InfoChip(
-                        label: 'Status',
-                        value: offer.status,
-                        backgroundColor: _statusColor(
-                          offer.status,
-                        ).withValues(alpha: 0.16),
-                        valueColor: _statusColor(offer.status),
-                      ),
-                      _InfoChip(
-                        label: 'Offer Amount',
-                        value: "${offer.currency} ${offer.amount}",
-                      ),
-                      _InfoChip(
-                        label: 'Created',
-                        value: _formatDateTime(offer.createdAt.toLocal()),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _DetailSection(
-                    title: 'Offer Summary',
-                    child: Column(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        // _detailRow('Offer ID', offer.id),
-                        // _detailRow('Lead ID', offer.leadId),
-                        _detailRow('Status', offer.status),
-                        _detailRow(
-                          'Amount',
-                          "${offer.currency} ${offer.amount}",
+                        _InfoChip(
+                          label: 'Status',
+                          value: offer.status,
+                          backgroundColor: _statusColor(
+                            offer.status,
+                          ).withValues(alpha: 0.16),
+                          valueColor: _statusColor(offer.status),
                         ),
-                        _detailRow(
-                          'Created',
-                          _formatDateTime(offer.createdAt.toLocal()),
+                        _InfoChip(
+                          label: 'Offer Amount',
+                          value: "${offer.currency} ${offer.amount}",
                         ),
-                        _detailRow(
-                          'Accepted',
-                          offer.acceptedAt == null
-                              ? 'Not available'
-                              : _formatDateTime(offer.acceptedAt!.toLocal()),
-                        ),
-                        _detailRow(
-                          'Viewed',
-                          offer.viewedAt == null
-                              ? 'Not available'
-                              : _formatDateTime(offer.viewedAt!.toLocal()),
-                        ),
-                        _detailRow(
-                          'Rejected',
-                          offer.rejectedAt == null
-                              ? 'Not available'
-                              : _formatDateTime(offer.rejectedAt!.toLocal()),
-                        ),
-                        _detailRow(
-                          'Follow Up Attempts',
-                          offer.followUpAttemptCount.toString(),
+                        _InfoChip(
+                          label: 'Created',
+                          value: _formatDateTime(offer.createdAt.toLocal()),
                         ),
                       ],
                     ),
-                  ),
-                  if ((offer.message ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _DetailSection(
+                      title: 'Offer Summary',
+                      child: Column(
+                        children: [
+                          _detailRow('Status', offer.status),
+                          _detailRow(
+                            'Amount',
+                            "${offer.currency} ${offer.amount}",
+                          ),
+                          _detailRow(
+                            'Created',
+                            _formatDateTime(offer.createdAt.toLocal()),
+                          ),
+                          _detailRow(
+                            'Accepted',
+                            offer.acceptedAt == null
+                                ? 'Not available'
+                                : _formatDateTime(offer.acceptedAt!.toLocal()),
+                          ),
+                          _detailRow(
+                            'Viewed',
+                            offer.viewedAt == null
+                                ? 'Not available'
+                                : _formatDateTime(offer.viewedAt!.toLocal()),
+                          ),
+                          _detailRow(
+                            'Rejected',
+                            offer.rejectedAt == null
+                                ? 'Not available'
+                                : _formatDateTime(offer.rejectedAt!.toLocal()),
+                          ),
+                          _detailRow(
+                            'Follow Up Attempts',
+                            offer.followUpAttemptCount.toString(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if ((offer.message ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      _DetailSection(
+                        title: 'Offer Message',
+                        child: Text(
+                          offer.message!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     _DetailSection(
-                      title: 'Offer Message',
-                      child: Text(
-                        offer.message!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                          color: Colors.black87,
-                        ),
+                      title: 'Customer',
+                      child: Column(
+                        children: [
+                          _detailRow('Name', lead.customer.fullName),
+                          _detailRow('Phone', lead.customer.phoneNumber),
+                          _detailRow(
+                            'WhatsApp',
+                            lead.customer.whatsappNumber ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Email',
+                            lead.customer.email ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Postcode',
+                            lead.customer.postcode ?? 'Not available',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _DetailSection(
+                      title: 'Vehicle',
+                      child: Column(
+                        children: [
+                          _detailRow(
+                            'Registration',
+                            lead.vehicle.registrationNumber,
+                          ),
+                          _detailRow('Make', lead.vehicle.make),
+                          _detailRow('Model', lead.vehicle.model),
+                          _detailRow(
+                            'Variant',
+                            lead.vehicle.variant ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Year',
+                            lead.vehicle.registrationYear?.toString() ??
+                                'Not available',
+                          ),
+                          _detailRow('Mileage', "${lead.vehicle.mileage} miles"),
+                          _detailRow(
+                            'Colour',
+                            lead.vehicle.colour ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Fuel',
+                            lead.vehicle.fuelType ?? 'Not available',
+                          ),
+                          _detailRow(
+                            'Transmission',
+                            lead.vehicle.transmission ?? 'Not available',
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  _DetailSection(
-                    title: 'Customer',
-                    child: Column(
-                      children: [
-                        _detailRow('Name', lead.customer.fullName),
-                        _detailRow('Phone', lead.customer.phoneNumber),
-                        _detailRow(
-                          'WhatsApp',
-                          lead.customer.whatsappNumber ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Email',
-                          lead.customer.email ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Postcode',
-                          lead.customer.postcode ?? 'Not available',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _DetailSection(
-                    title: 'Vehicle',
-                    child: Column(
-                      children: [
-                        _detailRow(
-                          'Registration',
-                          lead.vehicle.registrationNumber,
-                        ),
-                        _detailRow('Make', lead.vehicle.make),
-                        _detailRow('Model', lead.vehicle.model),
-                        _detailRow(
-                          'Variant',
-                          lead.vehicle.variant ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Year',
-                          lead.vehicle.registrationYear?.toString() ??
-                              'Not available',
-                        ),
-                        _detailRow('Mileage', "${lead.vehicle.mileage} miles"),
-                        _detailRow(
-                          'Colour',
-                          lead.vehicle.colour ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Fuel',
-                          lead.vehicle.fuelType ?? 'Not available',
-                        ),
-                        _detailRow(
-                          'Transmission',
-                          lead.vehicle.transmission ?? 'Not available',
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: _OfferActionBar(
+          offer: offer,
+          isMovingToStock: _isMovingToStock,
+          onMoveToStock: _moveToStock,
+        ),
       ),
-      bottomNavigationBar: _OfferActionBar(offer: offer),
     );
   }
 
@@ -317,11 +374,18 @@ class OfferDetailScreen extends StatelessWidget {
 
 class _OfferActionBar extends StatelessWidget {
   final OfferModel offer;
+  final bool isMovingToStock;
+  final Future<void> Function() onMoveToStock;
 
-  const _OfferActionBar({required this.offer});
+  const _OfferActionBar({
+    required this.offer,
+    required this.isMovingToStock,
+    required this.onMoveToStock,
+  });
 
   @override
   Widget build(BuildContext context) {
+    const brandYellow = Color(0xFFFACC14);
     final lead = offer.lead;
     final whatsappPhone =
         lead.customer.whatsappNumber ?? lead.customer.phoneNumber;
@@ -343,19 +407,41 @@ class _OfferActionBar extends StatelessWidget {
         ),
         child: Row(
           children: [
+            _QuickActionButton(
+              icon: Icons.message,
+              backgroundColor: const Color(0xFF25D366),
+              iconColor: Colors.white,
+              onTap: () => _launchWhatsApp(
+                context,
+                whatsappPhone,
+                "${offer.lead.vehicle.make} ${offer.lead.vehicle.model}",
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => _launchWhatsApp(context, whatsappPhone),
-                icon: const Icon(Icons.message, color: Colors.white),
-                label: const Text('WhatsApp'),
+                onPressed: isMovingToStock ? null : onMoveToStock,
+                icon: isMovingToStock
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: brandYellow,
+                        ),
+                      )
+                    : const Icon(Icons.inventory_2_outlined),
+                label: Text(
+                  isMovingToStock ? 'Moving...' : 'Move To Stock',
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.black,
+                  foregroundColor: brandYellow,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             _QuickActionButton(
               icon: Icons.phone_outlined,
               onTap: () => _launchUrl(
@@ -376,10 +462,14 @@ class _OfferActionBar extends StatelessWidget {
     );
   }
 
-  Future<void> _launchWhatsApp(BuildContext context, String phone) async {
+  static Future<void> _launchWhatsApp(
+    BuildContext context,
+    String phone,
+    String vehicleTitle,
+  ) async {
     final cleanPhone = _sanitizePhone(phone);
     final text = Uri.encodeComponent(
-      "Regarding your offer for ${offer.lead.vehicle.make} ${offer.lead.vehicle.model}",
+      "Regarding your offer for $vehicleTitle",
     );
 
     final directUri = Uri.parse("whatsapp://send?phone=$cleanPhone&text=$text");
@@ -396,7 +486,7 @@ class _OfferActionBar extends StatelessWidget {
     await _launchUrl(context, webUri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _launchUrl(
+  static Future<void> _launchUrl(
     BuildContext context,
     Uri uri, {
     LaunchMode mode = LaunchMode.platformDefault,
@@ -488,7 +578,7 @@ class _InfoChip extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
-              color: valueColor ?? Colors.black87,
+              color: valueColor ?? Colors.black,
             ),
           ),
         ],
@@ -500,13 +590,20 @@ class _InfoChip extends StatelessWidget {
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
+  final Color? backgroundColor;
+  final Color? iconColor;
 
-  const _QuickActionButton({required this.icon, required this.onTap});
+  const _QuickActionButton({
+    required this.icon,
+    required this.onTap,
+    this.backgroundColor,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.grey[100],
+      color: backgroundColor ?? Colors.grey[100],
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -514,7 +611,12 @@ class _QuickActionButton extends StatelessWidget {
         child: SizedBox(
           height: 52,
           width: 52,
-          child: Icon(icon, color: onTap == null ? Colors.grey : Colors.black),
+          child: Icon(
+            icon,
+            color: onTap == null
+                ? Colors.grey
+                : iconColor ?? Colors.black,
+          ),
         ),
       ),
     );
